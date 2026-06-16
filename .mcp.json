@@ -1,6 +1,7 @@
 {
   "mcpServers": {
     "linear-mcp": {
+      "type": "npx",
       "command": "npx",
       "args": [
         "-y",
