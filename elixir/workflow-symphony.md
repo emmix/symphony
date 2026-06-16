@@ -23,7 +23,6 @@ workspace:
 hooks:
   after_create: |
     git clone --depth 2 git@github.com:emmix/symphony.git
-    git checkout -b  feat/claude-runtime origin/feat/claude-runtime
     if command -v mise >/dev/null 2>&1; then
       cd elixir && mise trust && mise exec -- mix deps.get
     fi
