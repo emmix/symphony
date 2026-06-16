@@ -26,6 +26,13 @@ defmodule SymphonyElixir.Config do
           turn_sandbox_policy: map()
         }
 
+  @type claude_runtime_settings :: %{
+          command: String.t(),
+          model: String.t() | nil,
+          turn_timeout_ms: pos_integer(),
+          stall_timeout_ms: non_neg_integer()
+        }
+
   @spec settings() :: {:ok, Schema.t()} | {:error, term()}
   def settings do
     case Workflow.current() do
@@ -60,6 +67,9 @@ defmodule SymphonyElixir.Config do
   end
 
   def max_concurrent_agents_for_state(_state_name), do: settings!().agent.max_concurrent_agents
+
+  @spec agent_type() :: String.t()
+  def agent_type, do: settings!().agent_type
 
   @spec codex_turn_sandbox_policy(Path.t() | nil) :: map()
   def codex_turn_sandbox_policy(workspace \\ nil) do
@@ -114,6 +124,36 @@ defmodule SymphonyElixir.Config do
     end
   end
 
+  @spec claude_runtime_settings(keyword()) ::
+          {:ok, claude_runtime_settings()} | {:error, term()}
+  def claude_runtime_settings(opts \\ []) do
+    with {:ok, settings} <- settings() do
+      claude = settings.claude
+
+      command =
+        resolve_optional_opt(opts, :command, claude.command)
+
+      model =
+        resolve_optional_opt(opts, :model, claude.model)
+
+      {:ok,
+       %{
+         command: command,
+         model: model,
+         turn_timeout_ms: claude.turn_timeout_ms,
+         stall_timeout_ms: claude.stall_timeout_ms
+       }}
+    end
+  end
+
+  @spec claude_runtime_settings!(keyword()) :: claude_runtime_settings()
+  def claude_runtime_settings!(opts \\ []) do
+    case claude_runtime_settings(opts) do
+      {:ok, settings} -> settings
+      {:error, reason} -> raise ArgumentError, message: "Invalid claude settings: #{inspect(reason)}"
+    end
+  end
+
   defp validate_semantics(settings) do
     cond do
       is_nil(settings.tracker.kind) ->
@@ -128,9 +168,19 @@ defmodule SymphonyElixir.Config do
       settings.tracker.kind == "linear" and not is_binary(settings.tracker.project_slug) ->
         {:error, :missing_linear_project_slug}
 
+      settings.agent_type not in ["codex", "claude"] ->
+        {:error, {:unsupported_agent_type, settings.agent_type}}
+
+      settings.agent_type == "claude" and not is_binary(settings.claude.command) ->
+        {:error, :missing_claude_command}
+
       true ->
         :ok
     end
+  end
+
+  defp resolve_optional_opt(opts, key, default) do
+    Keyword.get(opts, key, default)
   end
 
   defp format_config_error(reason) do

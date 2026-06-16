@@ -513,7 +513,7 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
       max_concurrent_agents: 3,
       running: %{},
       claimed: MapSet.new(),
-      codex_totals: %{input_tokens: 0, output_tokens: 0, total_tokens: 0, seconds_running: 0},
+      agent_totals: %{input_tokens: 0, output_tokens: 0, total_tokens: 0, seconds_running: 0},
       retry_attempts: %{}
     }
 
@@ -535,7 +535,7 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
       max_concurrent_agents: 3,
       running: %{},
       claimed: MapSet.new(),
-      codex_totals: %{input_tokens: 0, output_tokens: 0, total_tokens: 0, seconds_running: 0},
+      agent_totals: %{input_tokens: 0, output_tokens: 0, total_tokens: 0, seconds_running: 0},
       retry_attempts: %{}
     }
 
@@ -559,7 +559,7 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
       max_concurrent_agents: 3,
       running: %{},
       claimed: MapSet.new(),
-      codex_totals: %{input_tokens: 0, output_tokens: 0, total_tokens: 0, seconds_running: 0},
+      agent_totals: %{input_tokens: 0, output_tokens: 0, total_tokens: 0, seconds_running: 0},
       retry_attempts: %{}
     }
 
@@ -580,7 +580,7 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
       max_concurrent_agents: 3,
       running: %{},
       claimed: MapSet.new(),
-      codex_totals: %{input_tokens: 0, output_tokens: 0, total_tokens: 0, seconds_running: 0},
+      agent_totals: %{input_tokens: 0, output_tokens: 0, total_tokens: 0, seconds_running: 0},
       retry_attempts: %{}
     }
 
@@ -1296,6 +1296,106 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
 
     write_workflow_file!(Workflow.workflow_file_path(), prompt: workflow_prompt)
     assert Config.workflow_prompt() == workflow_prompt
+  end
+
+  test "parses claude config with defaults" do
+    config = %{"tracker" => %{"kind" => "linear", "api_key" => "k", "project_slug" => "p"}, "claude" => %{}}
+    assert {:ok, settings} = Schema.parse(config)
+    assert settings.claude.command == "claude"
+    assert settings.claude.model == nil
+    assert settings.claude.turn_timeout_ms == 3_600_000
+    assert settings.claude.stall_timeout_ms == 300_000
+    assert settings.agent_type == "codex"
+  end
+
+  test "parses agent_type and claude overrides" do
+    config = %{
+      "tracker" => %{"kind" => "linear", "api_key" => "k", "project_slug" => "p"},
+      "agent_type" => "claude",
+      "claude" => %{"command" => "/usr/local/bin/claude", "model" => "claude-sonnet-4-6", "turn_timeout_ms" => 1_800_000}
+    }
+    assert {:ok, settings} = Schema.parse(config)
+    assert settings.agent_type == "claude"
+    assert settings.claude.command == "/usr/local/bin/claude"
+    assert settings.claude.model == "claude-sonnet-4-6"
+    assert settings.claude.turn_timeout_ms == 1_800_000
+  end
+
+  test "rejects invalid claude config" do
+    config = %{"tracker" => %{"kind" => "linear", "api_key" => "k", "project_slug" => "p"}, "claude" => %{"turn_timeout_ms" => 0}}
+    assert {:error, {:invalid_workflow_config, _}} = Schema.parse(config)
+  end
+
+  test "agent_type returns configured agent type" do
+    write_workflow_file!(Workflow.workflow_file_path(), agent_type: "claude")
+    assert Config.agent_type() == "claude"
+
+    write_workflow_file!(Workflow.workflow_file_path(), agent_type: "codex")
+    assert Config.agent_type() == "codex"
+  end
+
+  test "claude_runtime_settings returns command, model, and timeouts" do
+    write_workflow_file!(Workflow.workflow_file_path(),
+      agent_type: "claude",
+      claude_command: "/usr/local/bin/claude",
+      claude_model: "claude-sonnet-4-6",
+      claude_turn_timeout_ms: 1_800_000,
+      claude_stall_timeout_ms: 120_000
+    )
+
+    assert {:ok, settings} = Config.claude_runtime_settings()
+    assert settings.command == "/usr/local/bin/claude"
+    assert settings.model == "claude-sonnet-4-6"
+    assert settings.turn_timeout_ms == 1_800_000
+    assert settings.stall_timeout_ms == 120_000
+  end
+
+  test "claude_runtime_settings! raises on invalid settings" do
+    write_workflow_file!(Workflow.workflow_file_path(), poll_interval_ms: 0)
+
+    assert_raise ArgumentError, ~r/Invalid claude settings/, fn ->
+      Config.claude_runtime_settings!()
+    end
+  end
+
+  test "validate rejects unsupported agent_type" do
+    previous_linear_api_key = System.get_env("LINEAR_API_KEY")
+    on_exit(fn -> restore_env("LINEAR_API_KEY", previous_linear_api_key) end)
+    System.delete_env("LINEAR_API_KEY")
+
+    write_workflow_file!(Workflow.workflow_file_path(), agent_type: "unknown")
+    assert {:error, {:unsupported_agent_type, "unknown"}} = Config.validate!()
+  end
+
+  test "config defaults include agent_type and claude" do
+    previous_linear_api_key = System.get_env("LINEAR_API_KEY")
+    on_exit(fn -> restore_env("LINEAR_API_KEY", previous_linear_api_key) end)
+    System.delete_env("LINEAR_API_KEY")
+
+    write_workflow_file!(Workflow.workflow_file_path(),
+      workspace_root: nil,
+      max_concurrent_agents: nil,
+      codex_approval_policy: nil,
+      codex_thread_sandbox: nil,
+      codex_turn_sandbox_policy: nil,
+      codex_turn_timeout_ms: nil,
+      codex_read_timeout_ms: nil,
+      codex_stall_timeout_ms: nil,
+      tracker_api_token: nil,
+      tracker_project_slug: nil,
+      agent_type: nil,
+      claude_command: nil,
+      claude_model: nil,
+      claude_turn_timeout_ms: nil,
+      claude_stall_timeout_ms: nil
+    )
+
+    config = Config.settings!()
+    assert config.agent_type == "codex"
+    assert config.claude.command == "claude"
+    assert config.claude.model == nil
+    assert config.claude.turn_timeout_ms == 3_600_000
+    assert config.claude.stall_timeout_ms == 300_000
   end
 
   test "remote workspace lifecycle uses ssh host aliases from worker config" do

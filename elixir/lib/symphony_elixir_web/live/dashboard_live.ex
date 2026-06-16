@@ -99,9 +99,9 @@ defmodule SymphonyElixirWeb.DashboardLive do
 
           <article class="metric-card">
             <p class="metric-label">Total tokens</p>
-            <p class="metric-value numeric"><%= format_int(@payload.codex_totals.total_tokens) %></p>
+            <p class="metric-value numeric"><%= format_int(@payload.agent_totals.total_tokens) %></p>
             <p class="metric-detail numeric">
-              In <%= format_int(@payload.codex_totals.input_tokens) %> / Out <%= format_int(@payload.codex_totals.output_tokens) %>
+              In <%= format_int(@payload.agent_totals.input_tokens) %> / Out <%= format_int(@payload.agent_totals.output_tokens) %>
             </p>
           </article>
 
@@ -378,7 +378,7 @@ defmodule SymphonyElixirWeb.DashboardLive do
   defp external_issue_url(_url), do: nil
 
   defp completed_runtime_seconds(payload) do
-    payload.codex_totals.seconds_running || 0
+    payload.agent_totals.seconds_running || 0
   end
 
   defp total_runtime_seconds(payload, now) do

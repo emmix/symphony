@@ -307,15 +307,15 @@ defmodule SymphonyElixir.StatusDashboard do
 
   defp snapshot_with_samples(token_samples, now_ms) do
     case snapshot_payload() do
-      {:ok, %{running: running, retrying: retrying, codex_totals: codex_totals} = snapshot} ->
-        total_tokens = Map.get(codex_totals, :total_tokens, 0)
+      {:ok, %{running: running, retrying: retrying, agent_totals: agent_totals} = snapshot} ->
+        total_tokens = Map.get(agent_totals, :total_tokens, 0)
 
         {
           {:ok,
            %{
              running: running,
              retrying: retrying,
-             codex_totals: codex_totals,
+             agent_totals: agent_totals,
              rate_limits: Map.get(snapshot, :rate_limits),
              polling: Map.get(snapshot, :polling)
            }},
@@ -332,14 +332,14 @@ defmodule SymphonyElixir.StatusDashboard do
 
   defp format_snapshot_content(snapshot_data, tps, terminal_columns_override \\ nil) do
     case snapshot_data do
-      {:ok, %{running: running, retrying: retrying, codex_totals: codex_totals} = snapshot} ->
+      {:ok, %{running: running, retrying: retrying, agent_totals: agent_totals} = snapshot} ->
         rate_limits = Map.get(snapshot, :rate_limits)
         project_link_lines = format_project_link_lines()
         project_refresh_line = format_project_refresh_line(Map.get(snapshot, :polling))
-        codex_input_tokens = Map.get(codex_totals, :input_tokens, 0)
-        codex_output_tokens = Map.get(codex_totals, :output_tokens, 0)
-        codex_total_tokens = Map.get(codex_totals, :total_tokens, 0)
-        codex_seconds_running = Map.get(codex_totals, :seconds_running, 0)
+        agent_input_tokens = Map.get(agent_totals, :input_tokens, 0)
+        agent_output_tokens = Map.get(agent_totals, :output_tokens, 0)
+        agent_total_tokens = Map.get(agent_totals, :total_tokens, 0)
+        agent_seconds_running = Map.get(agent_totals, :seconds_running, 0)
         agent_count = length(running)
         max_agents = Config.settings!().agent.max_concurrent_agents
         running_event_width = running_event_width(terminal_columns_override)
@@ -355,13 +355,13 @@ defmodule SymphonyElixir.StatusDashboard do
              colorize("#{max_agents}", @ansi_gray),
            colorize("│ Throughput: ", @ansi_bold) <> colorize("#{format_tps(tps)} tps", @ansi_cyan),
            colorize("│ Runtime: ", @ansi_bold) <>
-             colorize(format_runtime_seconds(codex_seconds_running), @ansi_magenta),
+             colorize(format_runtime_seconds(agent_seconds_running), @ansi_magenta),
            colorize("│ Tokens: ", @ansi_bold) <>
-             colorize("in #{format_count(codex_input_tokens)}", @ansi_yellow) <>
+             colorize("in #{format_count(agent_input_tokens)}", @ansi_yellow) <>
              colorize(" | ", @ansi_gray) <>
-             colorize("out #{format_count(codex_output_tokens)}", @ansi_yellow) <>
+             colorize("out #{format_count(agent_output_tokens)}", @ansi_yellow) <>
              colorize(" | ", @ansi_gray) <>
-             colorize("total #{format_count(codex_total_tokens)}", @ansi_yellow),
+             colorize("total #{format_count(agent_total_tokens)}", @ansi_yellow),
            colorize("│ Rate Limits: ", @ansi_bold) <> format_rate_limits(rate_limits),
            project_link_lines,
            project_refresh_line,
@@ -553,14 +553,14 @@ defmodule SymphonyElixir.StatusDashboard do
         %{
           running: running,
           retrying: retrying,
-          codex_totals: codex_totals
+          agent_totals: agent_totals
         } = snapshot
         when is_list(running) and is_list(retrying) ->
           {:ok,
            %{
              running: running,
              retrying: retrying,
-             codex_totals: codex_totals,
+             agent_totals: agent_totals,
              rate_limits: Map.get(snapshot, :rate_limits),
              polling: Map.get(snapshot, :polling)
            }}
@@ -1045,8 +1045,8 @@ defmodule SymphonyElixir.StatusDashboard do
     colorize("●", color_code)
   end
 
-  defp snapshot_total_tokens({:ok, %{codex_totals: codex_totals}}) when is_map(codex_totals) do
-    Map.get(codex_totals, :total_tokens, 0)
+  defp snapshot_total_tokens({:ok, %{agent_totals: agent_totals}}) when is_map(agent_totals) do
+    Map.get(agent_totals, :total_tokens, 0)
   end
 
   defp snapshot_total_tokens(_snapshot_data), do: 0
@@ -1144,6 +1144,23 @@ defmodule SymphonyElixir.StatusDashboard do
 
   defp humanize_codex_event(:unsupported_tool_call, _message, payload),
     do: humanize_dynamic_tool_event("unsupported dynamic tool call rejected", payload)
+
+  defp humanize_codex_event(:session_completed, _message, payload) do
+    session_id = map_value(payload, ["session_id", :session_id])
+    usage = map_value(payload, ["usage", :usage])
+
+    total =
+      if is_map(usage) do
+        Map.get(usage, :total_tokens) || Map.get(usage, "total_tokens")
+      end
+
+    parts = ["turn completed"]
+    parts = if is_binary(session_id), do: parts ++ ["session=#{session_id}"], else: parts
+    parts = if is_integer(total), do: parts ++ ["tokens=#{total}"], else: parts
+    Enum.join(parts, " ")
+  end
+
+  defp humanize_codex_event(:turn_progress, _message, _payload), do: nil
 
   defp humanize_codex_event(:turn_ended_with_error, message, _payload), do: "turn ended with error: #{format_reason(message)}"
   defp humanize_codex_event(:startup_failed, message, _payload), do: "startup failed: #{format_reason(message)}"

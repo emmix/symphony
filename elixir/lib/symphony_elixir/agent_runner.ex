@@ -4,6 +4,7 @@ defmodule SymphonyElixir.AgentRunner do
   """
 
   require Logger
+  alias SymphonyElixir.Claude.Session
   alias SymphonyElixir.Codex.AppServer
   alias SymphonyElixir.{Config, Linear.Issue, PromptBuilder, Tracker, Workspace}
 
@@ -63,6 +64,7 @@ defmodule SymphonyElixir.AgentRunner do
   defp send_codex_update(recipient, %Issue{id: issue_id}, message)
        when is_binary(issue_id) and is_pid(recipient) do
     send(recipient, {:codex_worker_update, issue_id, message})
+    send(recipient, {:agent_worker_update, issue_id, message})
     :ok
   end
 
@@ -84,15 +86,69 @@ defmodule SymphonyElixir.AgentRunner do
 
   defp send_worker_runtime_info(_recipient, _issue, _worker_host, _workspace), do: :ok
 
+  defp send_session_pid(recipient, %Issue{id: issue_id}, %{metadata: %{codex_app_server_pid: pid}, session_id: session_id})
+       when is_binary(issue_id) and is_pid(recipient) and is_binary(pid) do
+    send(recipient, {:worker_runtime_info, issue_id, %{codex_app_server_pid: pid, session_id: session_id}})
+    :ok
+  end
+
+  defp send_session_pid(recipient, %Issue{id: issue_id}, %{port: port, session_id: session_id})
+       when is_binary(issue_id) and is_pid(recipient) and is_binary(session_id) do
+    os_pid = extract_os_pid(port)
+    runtime_info = if os_pid, do: %{codex_app_server_pid: os_pid, session_id: session_id}, else: %{session_id: session_id}
+    send(recipient, {:worker_runtime_info, issue_id, runtime_info})
+    :ok
+  end
+
+  defp send_session_pid(recipient, %Issue{id: issue_id}, %{session_id: session_id})
+       when is_binary(issue_id) and is_pid(recipient) and is_binary(session_id) do
+    send(recipient, {:worker_runtime_info, issue_id, %{session_id: session_id}})
+    :ok
+  end
+
+  defp send_session_pid(_recipient, _issue, _session), do: :ok
+
+  defp extract_os_pid(port) when is_port(port) do
+    case Port.info(port, :os_pid) do
+      {:os_pid, os_pid} when is_integer(os_pid) -> Integer.to_string(os_pid)
+      _ -> nil
+    end
+  end
+
+  defp extract_os_pid(_port), do: nil
+
+  defp start_agent_session(workspace, opts) do
+    case Config.agent_type() do
+      "claude" -> Session.start_session(workspace, opts)
+      _ -> AppServer.start_session(workspace, opts)
+    end
+  end
+
+  defp run_agent_turn(session, prompt, issue, opts) do
+    case Config.agent_type() do
+      "claude" -> Session.run_turn(session, prompt, issue, opts)
+      _ -> AppServer.run_turn(session, prompt, issue, opts)
+    end
+  end
+
+  defp stop_agent_session(session) do
+    case Config.agent_type() do
+      "claude" -> Session.stop_session(session)
+      _ -> AppServer.stop_session(session)
+    end
+  end
+
   defp run_codex_turns(workspace, issue, codex_update_recipient, opts, worker_host) do
     max_turns = Keyword.get(opts, :max_turns, Config.settings!().agent.max_turns)
     issue_state_fetcher = Keyword.get(opts, :issue_state_fetcher, &Tracker.fetch_issue_states_by_ids/1)
 
-    with {:ok, session} <- AppServer.start_session(workspace, worker_host: worker_host) do
+    with {:ok, session} <- start_agent_session(workspace, worker_host: worker_host) do
+      send_session_pid(codex_update_recipient, issue, session)
+
       try do
         do_run_codex_turns(session, workspace, issue, codex_update_recipient, opts, issue_state_fetcher, 1, max_turns)
       after
-        AppServer.stop_session(session)
+        stop_agent_session(session)
       end
     end
   end
@@ -101,7 +157,7 @@ defmodule SymphonyElixir.AgentRunner do
     prompt = build_turn_prompt(issue, opts, turn_number, max_turns)
 
     with {:ok, turn_session} <-
-           AppServer.run_turn(
+           run_agent_turn(
              app_session,
              prompt,
              issue,
@@ -144,7 +200,7 @@ defmodule SymphonyElixir.AgentRunner do
     """
     Continuation guidance:
 
-    - The previous Codex turn completed normally, but the Linear issue is still in an active state.
+    - The previous agent turn completed normally, but the Linear issue is still in an active state.
     - This is continuation turn ##{turn_number} of #{max_turns} for the current agent run.
     - Resume from the current workspace and workpad state instead of restarting from scratch.
     - The original task instructions and prior turn context are already present in this thread, so do not restate them before acting.
