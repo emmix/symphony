@@ -63,6 +63,13 @@ defmodule SymphonyElixirWeb.Presenter do
     end
   end
 
+  @spec stop_payload({:ok, map()} | {:error, :not_found}) :: {:ok, map()} | {:error, :not_found}
+  def stop_payload({:ok, result}) do
+    {:ok, Map.put(result, :acted_at, DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601())}
+  end
+
+  def stop_payload({:error, :not_found}), do: {:error, :not_found}
+
   defp issue_payload_body(issue_identifier, running, retry, blocked) do
     %{
       issue_identifier: issue_identifier,

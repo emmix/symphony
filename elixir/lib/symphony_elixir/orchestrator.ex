@@ -1343,6 +1343,20 @@ defmodule SymphonyElixir.Orchestrator do
     end)
   end
 
+  defp find_running_entry_by_identifier(running, identifier) do
+    running
+    |> Enum.find_value(fn {issue_id, %{identifier: id} = entry} ->
+      if id == identifier, do: {issue_id, entry}
+    end)
+  end
+
+  defp find_blocked_entry_by_identifier(blocked, identifier) do
+    blocked
+    |> Enum.find_value(fn {issue_id, %{identifier: id} = entry} ->
+      if id == identifier, do: {issue_id, entry}
+    end)
+  end
+
   defp running_entry_session_id(%{session_id: session_id}) when is_binary(session_id),
     do: session_id
 
@@ -1371,6 +1385,34 @@ defmodule SymphonyElixir.Orchestrator do
       GenServer.call(server, :request_refresh)
     else
       :unavailable
+    end
+  end
+
+  @spec stop_issue(String.t()) :: {:ok, map()} | {:error, :not_found}
+  def stop_issue(issue_identifier) do
+    stop_issue(__MODULE__, issue_identifier)
+  end
+
+  @spec stop_issue(GenServer.server(), String.t()) :: {:ok, map()} | {:error, :not_found}
+  def stop_issue(server, issue_identifier) do
+    if Process.whereis(server) do
+      GenServer.call(server, {:stop_issue, issue_identifier})
+    else
+      {:error, :not_found}
+    end
+  end
+
+  @spec unblock_issue(String.t()) :: {:ok, map()} | {:error, :not_found}
+  def unblock_issue(issue_identifier) do
+    unblock_issue(__MODULE__, issue_identifier)
+  end
+
+  @spec unblock_issue(GenServer.server(), String.t()) :: {:ok, map()} | {:error, :not_found}
+  def unblock_issue(server, issue_identifier) do
+    if Process.whereis(server) do
+      GenServer.call(server, {:unblock_issue, issue_identifier})
+    else
+      {:error, :not_found}
     end
   end
 
@@ -1483,6 +1525,63 @@ defmodule SymphonyElixir.Orchestrator do
        requested_at: DateTime.utc_now(),
        operations: ["poll", "reconcile"]
      }, state}
+  end
+
+  def handle_call({:stop_issue, issue_identifier}, _from, %State{} = state) do
+    case find_running_entry_by_identifier(state.running, issue_identifier) do
+      {issue_id, running_entry} ->
+        state = record_session_completion_totals(state, running_entry)
+        stop_running_task(Map.get(running_entry, :pid), Map.get(running_entry, :ref))
+
+        worker_host = Map.get(running_entry, :worker_host)
+
+        state = %{
+          state
+          | running: Map.delete(state.running, issue_id),
+            claimed: MapSet.delete(state.claimed, issue_id),
+            blocked: Map.delete(state.blocked, issue_id),
+            retry_attempts: Map.delete(state.retry_attempts, issue_id)
+        }
+
+        notify_dashboard()
+
+        {:reply,
+         {:ok,
+          %{
+            stopped: true,
+            issue_identifier: issue_identifier,
+            issue_id: issue_id,
+            worker_host: worker_host
+          }}, state}
+
+      nil ->
+        {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  def handle_call({:unblock_issue, issue_identifier}, _from, %State{} = state) do
+    case find_blocked_entry_by_identifier(state.blocked, issue_identifier) do
+      {issue_id, _blocked_entry} ->
+        state = %{
+          state
+          | blocked: Map.delete(state.blocked, issue_id),
+            claimed: MapSet.delete(state.claimed, issue_id),
+            retry_attempts: Map.delete(state.retry_attempts, issue_id)
+        }
+
+        notify_dashboard()
+
+        {:reply,
+         {:ok,
+          %{
+            unblocked: true,
+            issue_identifier: issue_identifier,
+            issue_id: issue_id
+          }}, state}
+
+      nil ->
+        {:reply, {:error, :not_found}, state}
+    end
   end
 
   defp blocked_issue_state(%{issue: %Issue{state: state}}), do: state
