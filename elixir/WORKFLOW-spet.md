@@ -14,6 +14,7 @@ tracker:
     - Canceled
     - Duplicate
     - Done
+  api_key: $LINEAR_API_KEY
   request_timeout_ms: 120000
 polling:
   interval_ms: 5000
