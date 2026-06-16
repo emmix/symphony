@@ -1,6 +1,6 @@
 defmodule SymphonyElixir.Orchestrator do
   @moduledoc """
-  Polls Linear and dispatches repository copies to Codex-backed workers.
+  Polls Linear and dispatches repository copies to agent-backed workers.
   """
 
   use GenServer
@@ -14,7 +14,7 @@ defmodule SymphonyElixir.Orchestrator do
   @failure_retry_base_ms 10_000
   # Slightly above the dashboard render interval so "checking now…" can render.
   @poll_transition_render_delay_ms 20
-  @empty_codex_totals %{
+  @empty_agent_totals %{
     input_tokens: 0,
     output_tokens: 0,
     total_tokens: 0,
@@ -38,8 +38,8 @@ defmodule SymphonyElixir.Orchestrator do
       claimed: MapSet.new(),
       blocked: %{},
       retry_attempts: %{},
-      codex_totals: nil,
-      codex_rate_limits: nil
+      agent_totals: nil,
+      agent_rate_limits: nil
     ]
   end
 
@@ -61,8 +61,8 @@ defmodule SymphonyElixir.Orchestrator do
       poll_check_in_progress: false,
       tick_timer_ref: nil,
       tick_token: nil,
-      codex_totals: @empty_codex_totals,
-      codex_rate_limits: nil
+      agent_totals: @empty_agent_totals,
+      agent_rate_limits: nil
     }
 
     run_terminal_workspace_cleanup()
@@ -150,6 +150,8 @@ defmodule SymphonyElixir.Orchestrator do
           running_entry
           |> maybe_put_runtime_value(:worker_host, runtime_info[:worker_host])
           |> maybe_put_runtime_value(:workspace_path, runtime_info[:workspace_path])
+          |> maybe_put_runtime_value(:codex_app_server_pid, runtime_info[:codex_app_server_pid])
+          |> maybe_put_runtime_value(:session_id, runtime_info[:session_id])
 
         notify_dashboard()
         {:noreply, %{state | running: Map.put(running, issue_id, updated_running_entry)}}
@@ -165,12 +167,12 @@ defmodule SymphonyElixir.Orchestrator do
         {:noreply, state}
 
       running_entry ->
-        {updated_running_entry, token_delta} = integrate_codex_update(running_entry, update)
+        {updated_running_entry, token_delta} = integrate_agent_update(running_entry, update)
 
         state =
           state
-          |> apply_codex_token_delta(token_delta)
-          |> apply_codex_rate_limits(update)
+          |> apply_agent_token_delta(token_delta)
+          |> apply_agent_rate_limits(update)
 
         notify_dashboard()
         {:noreply, %{state | running: Map.put(running, issue_id, updated_running_entry)}}
@@ -178,6 +180,29 @@ defmodule SymphonyElixir.Orchestrator do
   end
 
   def handle_info({:codex_worker_update, _issue_id, _update}, state), do: {:noreply, state}
+
+  def handle_info(
+        {:agent_worker_update, issue_id, %{event: _, timestamp: _} = update},
+        %{running: running} = state
+      ) do
+    case Map.get(running, issue_id) do
+      nil ->
+        {:noreply, state}
+
+      running_entry ->
+        {updated_running_entry, token_delta} = integrate_agent_update(running_entry, update)
+
+        state =
+          state
+          |> apply_agent_token_delta(token_delta)
+          |> apply_agent_rate_limits(update)
+
+        notify_dashboard()
+        {:noreply, %{state | running: Map.put(running, issue_id, updated_running_entry)}}
+    end
+  end
+
+  def handle_info({:agent_worker_update, _issue_id, _update}, state), do: {:noreply, state}
 
   def handle_info({:retry_issue, issue_id, retry_token}, state) do
     result =
@@ -606,7 +631,7 @@ defmodule SymphonyElixir.Orchestrator do
       session_id = running_entry_session_id(running_entry)
 
       if input_required_blocker?(running_entry) do
-        error = blocker_error(running_entry, "stalled for #{elapsed_ms}ms after Codex requested operator input")
+        error = blocker_error(running_entry, "stalled for #{elapsed_ms}ms after agent requested operator input")
 
         Logger.warning("Issue blocked: issue_id=#{issue_id} issue_identifier=#{identifier} session_id=#{session_id} elapsed_ms=#{elapsed_ms}; #{error}")
 
@@ -623,7 +648,7 @@ defmodule SymphonyElixir.Orchestrator do
         |> schedule_issue_retry(issue_id, next_attempt, %{
           identifier: identifier,
           issue_url: running_entry.issue.url,
-          error: "stalled for #{elapsed_ms}ms without codex activity"
+          error: "stalled for #{elapsed_ms}ms without agent activity"
         })
       end
     else
@@ -650,7 +675,7 @@ defmodule SymphonyElixir.Orchestrator do
   defp last_activity_timestamp(_running_entry), do: nil
 
   defp input_required_blocker?(running_entry) when is_map(running_entry) do
-    Map.get(running_entry, :last_codex_event) in [:turn_input_required, :approval_required] or
+    Map.get(running_entry, :last_codex_event) in [:turn_input_required, :approval_required, :permission_required] or
       not is_nil(input_required_completion_outcome(Map.get(running_entry, :completion))) or
       codex_message_method(Map.get(running_entry, :last_codex_message)) ==
         "mcpServer/elicitation/request"
@@ -689,21 +714,22 @@ defmodule SymphonyElixir.Orchestrator do
 
   defp blocker_error(_running_entry, fallback), do: fallback
 
-  defp codex_event_blocker_error(:turn_input_required), do: "codex turn requires operator input"
-  defp codex_event_blocker_error(:approval_required), do: "codex turn requires approval"
+  defp codex_event_blocker_error(:turn_input_required), do: "agent turn requires operator input"
+  defp codex_event_blocker_error(:approval_required), do: "agent turn requires approval"
+  defp codex_event_blocker_error(:permission_required), do: "agent turn requires permission"
   defp codex_event_blocker_error(_event), do: nil
 
   defp completion_blocker_error(completion) do
     case input_required_completion_outcome(completion) do
-      outcome when outcome in [:input_required, :needs_input] -> "codex turn requires operator input"
-      :approval_required -> "codex turn requires approval"
+      outcome when outcome in [:input_required, :needs_input] -> "agent turn requires operator input"
+      :approval_required -> "agent turn requires approval"
       nil -> nil
     end
   end
 
   defp codex_message_blocker_error(message) do
     if codex_message_method(message) == "mcpServer/elicitation/request" do
-      "codex MCP elicitation requires operator input"
+      "agent MCP elicitation requires operator input"
     end
   end
 
@@ -1317,6 +1343,20 @@ defmodule SymphonyElixir.Orchestrator do
     end)
   end
 
+  defp find_running_entry_by_identifier(running, identifier) do
+    running
+    |> Enum.find_value(fn {issue_id, %{identifier: id} = entry} ->
+      if id == identifier, do: {issue_id, entry}
+    end)
+  end
+
+  defp find_blocked_entry_by_identifier(blocked, identifier) do
+    blocked
+    |> Enum.find_value(fn {issue_id, %{identifier: id} = entry} ->
+      if id == identifier, do: {issue_id, entry}
+    end)
+  end
+
   defp running_entry_session_id(%{session_id: session_id}) when is_binary(session_id),
     do: session_id
 
@@ -1345,6 +1385,34 @@ defmodule SymphonyElixir.Orchestrator do
       GenServer.call(server, :request_refresh)
     else
       :unavailable
+    end
+  end
+
+  @spec stop_issue(String.t()) :: {:ok, map()} | {:error, :not_found}
+  def stop_issue(issue_identifier) do
+    stop_issue(__MODULE__, issue_identifier)
+  end
+
+  @spec stop_issue(GenServer.server(), String.t()) :: {:ok, map()} | {:error, :not_found}
+  def stop_issue(server, issue_identifier) do
+    if Process.whereis(server) do
+      GenServer.call(server, {:stop_issue, issue_identifier})
+    else
+      {:error, :not_found}
+    end
+  end
+
+  @spec unblock_issue(String.t()) :: {:ok, map()} | {:error, :not_found}
+  def unblock_issue(issue_identifier) do
+    unblock_issue(__MODULE__, issue_identifier)
+  end
+
+  @spec unblock_issue(GenServer.server(), String.t()) :: {:ok, map()} | {:error, :not_found}
+  def unblock_issue(server, issue_identifier) do
+    if Process.whereis(server) do
+      GenServer.call(server, {:unblock_issue, issue_identifier})
+    else
+      {:error, :not_found}
     end
   end
 
@@ -1434,8 +1502,8 @@ defmodule SymphonyElixir.Orchestrator do
        running: running,
        retrying: retrying,
        blocked: blocked,
-       codex_totals: state.codex_totals,
-       rate_limits: Map.get(state, :codex_rate_limits),
+       agent_totals: state.agent_totals,
+       rate_limits: Map.get(state, :agent_rate_limits),
        polling: %{
          checking?: state.poll_check_in_progress == true,
          next_poll_in_ms: next_poll_in_ms(state.next_poll_due_at_ms, now_ms),
@@ -1459,13 +1527,70 @@ defmodule SymphonyElixir.Orchestrator do
      }, state}
   end
 
+  def handle_call({:stop_issue, issue_identifier}, _from, %State{} = state) do
+    case find_running_entry_by_identifier(state.running, issue_identifier) do
+      {issue_id, running_entry} ->
+        state = record_session_completion_totals(state, running_entry)
+        stop_running_task(Map.get(running_entry, :pid), Map.get(running_entry, :ref))
+
+        worker_host = Map.get(running_entry, :worker_host)
+
+        state = %{
+          state
+          | running: Map.delete(state.running, issue_id),
+            claimed: MapSet.delete(state.claimed, issue_id),
+            blocked: Map.delete(state.blocked, issue_id),
+            retry_attempts: Map.delete(state.retry_attempts, issue_id)
+        }
+
+        notify_dashboard()
+
+        {:reply,
+         {:ok,
+          %{
+            stopped: true,
+            issue_identifier: issue_identifier,
+            issue_id: issue_id,
+            worker_host: worker_host
+          }}, state}
+
+      nil ->
+        {:reply, {:error, :not_found}, state}
+    end
+  end
+
+  def handle_call({:unblock_issue, issue_identifier}, _from, %State{} = state) do
+    case find_blocked_entry_by_identifier(state.blocked, issue_identifier) do
+      {issue_id, _blocked_entry} ->
+        state = %{
+          state
+          | blocked: Map.delete(state.blocked, issue_id),
+            claimed: MapSet.delete(state.claimed, issue_id),
+            retry_attempts: Map.delete(state.retry_attempts, issue_id)
+        }
+
+        notify_dashboard()
+
+        {:reply,
+         {:ok,
+          %{
+            unblocked: true,
+            issue_identifier: issue_identifier,
+            issue_id: issue_id
+          }}, state}
+
+      nil ->
+        {:reply, {:error, :not_found}, state}
+    end
+  end
+
   defp blocked_issue_state(%{issue: %Issue{state: state}}), do: state
   defp blocked_issue_state(_metadata), do: nil
 
   defp blocked_issue_url(%{issue: %Issue{url: url}}), do: url
   defp blocked_issue_url(_metadata), do: nil
 
-  defp integrate_codex_update(running_entry, %{event: event, timestamp: timestamp} = update) do
+  defp integrate_agent_update(running_entry, %{event: event, timestamp: timestamp} = update) do
     token_delta = extract_token_delta(running_entry, update)
     codex_input_tokens = Map.get(running_entry, :codex_input_tokens, 0)
     codex_output_tokens = Map.get(running_entry, :codex_output_tokens, 0)
@@ -1511,6 +1636,9 @@ defmodule SymphonyElixir.Orchestrator do
   defp session_id_for_update(_existing, %{session_id: session_id}) when is_binary(session_id),
     do: session_id
 
+  defp session_id_for_update(_existing, %{payload: %{session_id: session_id}}) when is_binary(session_id),
+    do: session_id
+
   defp session_id_for_update(existing, _update), do: existing
 
   defp turn_count_for_update(existing_count, existing_session_id, %{
@@ -1525,6 +1653,30 @@ defmodule SymphonyElixir.Orchestrator do
     end
   end
 
+  defp turn_count_for_update(existing_count, existing_session_id, %{
+         event: :session_completed,
+         payload: %{session_id: session_id}
+       })
+       when is_integer(existing_count) and is_binary(session_id) do
+    if session_id == existing_session_id do
+      existing_count + 1
+    else
+      existing_count
+    end
+  end
+
+  defp turn_count_for_update(existing_count, existing_session_id, %{
+         event: :turn_ended_with_error,
+         payload: %{session_id: session_id}
+       })
+       when is_integer(existing_count) and is_binary(session_id) do
+    if session_id == existing_session_id do
+      existing_count + 1
+    else
+      existing_count
+    end
+  end
+
   defp turn_count_for_update(existing_count, _existing_session_id, _update)
        when is_integer(existing_count),
        do: existing_count
@@ -1534,10 +1686,25 @@ defmodule SymphonyElixir.Orchestrator do
   defp summarize_codex_update(update) do
     %{
       event: update[:event],
-      message: update[:payload] || update[:raw],
+      message: summarize_update_message(update),
       timestamp: update[:timestamp]
     }
   end
+
+  defp summarize_update_message(%{payload: %{text: text}}) when is_binary(text) and text != "", do: text
+  defp summarize_update_message(%{payload: %{reason: reason}}) when is_binary(reason), do: reason
+  defp summarize_update_message(%{payload: payload}) when is_binary(payload), do: payload
+  defp summarize_update_message(%{payload: payload}) when is_map(payload) do
+    text = Map.get(payload, :text)
+    session_id = Map.get(payload, :session_id)
+
+    cond do
+      is_binary(text) and text != "" -> text
+      is_binary(session_id) -> "session=#{session_id}"
+      true -> payload
+    end
+  end
+  defp summarize_update_message(update), do: update[:raw]
 
   defp schedule_tick(%State{} = state, delay_ms) when is_integer(delay_ms) and delay_ms >= 0 do
     if is_reference(state.tick_timer_ref) do
@@ -1573,9 +1740,9 @@ defmodule SymphonyElixir.Orchestrator do
   defp record_session_completion_totals(state, running_entry) when is_map(running_entry) do
     runtime_seconds = running_seconds(running_entry.started_at, DateTime.utc_now())
 
-    codex_totals =
+    agent_totals =
       apply_token_delta(
-        state.codex_totals,
+        state.agent_totals,
         %{
           input_tokens: 0,
           output_tokens: 0,
@@ -1584,7 +1751,7 @@ defmodule SymphonyElixir.Orchestrator do
         }
       )
 
-    %{state | codex_totals: codex_totals}
+    %{state | agent_totals: agent_totals}
   end
 
   defp record_session_completion_totals(state, _running_entry), do: state
@@ -1608,35 +1775,35 @@ defmodule SymphonyElixir.Orchestrator do
     available_slots(state) > 0 and state_slots_available?(issue, state.running)
   end
 
-  defp apply_codex_token_delta(
-         %{codex_totals: codex_totals} = state,
+  defp apply_agent_token_delta(
+         %{agent_totals: agent_totals} = state,
          %{input_tokens: input, output_tokens: output, total_tokens: total} = token_delta
        )
        when is_integer(input) and is_integer(output) and is_integer(total) do
-    %{state | codex_totals: apply_token_delta(codex_totals, token_delta)}
+    %{state | agent_totals: apply_token_delta(agent_totals, token_delta)}
   end
 
-  defp apply_codex_token_delta(state, _token_delta), do: state
+  defp apply_agent_token_delta(state, _token_delta), do: state
 
-  defp apply_codex_rate_limits(%State{} = state, update) when is_map(update) do
+  defp apply_agent_rate_limits(%State{} = state, update) when is_map(update) do
     case extract_rate_limits(update) do
       %{} = rate_limits ->
-        %{state | codex_rate_limits: rate_limits}
+        %{state | agent_rate_limits: rate_limits}
 
       _ ->
         state
     end
   end
 
-  defp apply_codex_rate_limits(state, _update), do: state
+  defp apply_agent_rate_limits(state, _update), do: state
 
-  defp apply_token_delta(codex_totals, token_delta) do
-    input_tokens = Map.get(codex_totals, :input_tokens, 0) + token_delta.input_tokens
-    output_tokens = Map.get(codex_totals, :output_tokens, 0) + token_delta.output_tokens
-    total_tokens = Map.get(codex_totals, :total_tokens, 0) + token_delta.total_tokens
+  defp apply_token_delta(agent_totals, token_delta) do
+    input_tokens = Map.get(agent_totals, :input_tokens, 0) + token_delta.input_tokens
+    output_tokens = Map.get(agent_totals, :output_tokens, 0) + token_delta.output_tokens
+    total_tokens = Map.get(agent_totals, :total_tokens, 0) + token_delta.total_tokens
 
     seconds_running =
-      Map.get(codex_totals, :seconds_running, 0) + Map.get(token_delta, :seconds_running, 0)
+      Map.get(agent_totals, :seconds_running, 0) + Map.get(token_delta, :seconds_running, 0)
 
     %{
       input_tokens: max(0, input_tokens),
@@ -1733,25 +1900,44 @@ defmodule SymphonyElixir.Orchestrator do
       ["params", "tokenUsage", "total"],
       [:params, :tokenUsage, :total],
       ["tokenUsage", "total"],
-      [:tokenUsage, :total]
+      [:tokenUsage, :total],
+      # Claude flat usage map
+      ["usage"],
+      [:usage]
     ]
 
-    explicit_map_at_paths(payload, absolute_paths)
+    direct = if integer_token_map?(payload), do: payload, else: nil
+
+    direct || explicit_map_at_paths(payload, absolute_paths)
   end
 
   defp absolute_token_usage_from_payload(_payload), do: nil
 
   defp turn_completed_usage_from_payload(payload) when is_map(payload) do
     method = Map.get(payload, "method") || Map.get(payload, :method)
+    event = Map.get(payload, "event") || Map.get(payload, :event)
 
-    if method in ["turn/completed", :turn_completed] do
-      direct =
-        Map.get(payload, "usage") ||
-          Map.get(payload, :usage) ||
-          map_at_path(payload, ["params", "usage"]) ||
-          map_at_path(payload, [:params, :usage])
+    cond do
+      method in ["turn/completed", :turn_completed] ->
+        direct =
+          Map.get(payload, "usage") ||
+            Map.get(payload, :usage) ||
+            map_at_path(payload, ["params", "usage"]) ||
+            map_at_path(payload, [:params, :usage])
 
-      if is_map(direct) and integer_token_map?(direct), do: direct
+        if is_map(direct) and integer_token_map?(direct), do: direct
+
+      event in [:session_completed, "session_completed"] ->
+        direct =
+          Map.get(payload, "usage") ||
+            Map.get(payload, :usage) ||
+            map_at_path(payload, ["params", "usage"]) ||
+            map_at_path(payload, [:params, :usage])
+
+        if is_map(direct) and integer_token_map?(direct), do: direct
+
+      true ->
+        nil
     end
   end
 

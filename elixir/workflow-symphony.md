@@ -1,7 +1,7 @@
 ---
 tracker:
   kind: linear
-  project_slug: "symphony-0c79b11b75ea"
+  project_slug: "symphony-192af20d07c4"
   required_labels: []
   active_states:
     - Todo
@@ -14,19 +14,22 @@ tracker:
     - Canceled
     - Duplicate
     - Done
+  api_key: $LINEAR_API_KEY
+  request_timeout_ms: 120000
 polling:
   interval_ms: 5000
 workspace:
   root: ~/code/symphony-workspaces
 hooks:
   after_create: |
-    git clone --depth 1 https://github.com/openai/symphony .
+    git clone --depth 2 git@github.com:emmix/symphony.git
+    git checkout -b  feat/claude-runtime origin/feat/claude-runtime
     if command -v mise >/dev/null 2>&1; then
       cd elixir && mise trust && mise exec -- mix deps.get
     fi
   before_remove: |
     cd elixir && mise exec -- mix workspace.before_remove
-agent_type: codex
+agent_type: claude 
 agent:
   max_concurrent_agents: 10
   max_turns: 20

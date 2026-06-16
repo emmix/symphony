@@ -6,6 +6,7 @@ defmodule SymphonyElixirWeb.ObservabilityApiController do
   use Phoenix.Controller, formats: [:json]
 
   alias Plug.Conn
+  alias SymphonyElixir.Orchestrator
   alias SymphonyElixirWeb.{Endpoint, Presenter}
 
   @spec state(Conn.t(), map()) :: Conn.t()
@@ -34,6 +35,28 @@ defmodule SymphonyElixirWeb.ObservabilityApiController do
 
       {:error, :unavailable} ->
         error_response(conn, 503, "orchestrator_unavailable", "Orchestrator is unavailable")
+    end
+  end
+
+  @spec stop(Conn.t(), map()) :: Conn.t()
+  def stop(conn, %{"issue_identifier" => issue_identifier}) do
+    case Presenter.stop_payload(Orchestrator.stop_issue(orchestrator(), issue_identifier)) do
+      {:ok, payload} ->
+        json(conn, payload)
+
+      {:error, :not_found} ->
+        error_response(conn, 404, "issue_not_found", "No running agent found for #{issue_identifier}")
+    end
+  end
+
+  @spec unblock(Conn.t(), map()) :: Conn.t()
+  def unblock(conn, %{"issue_identifier" => issue_identifier}) do
+    case Presenter.stop_payload(Orchestrator.unblock_issue(orchestrator(), issue_identifier)) do
+      {:ok, payload} ->
+        json(conn, payload)
+
+      {:error, :not_found} ->
+        error_response(conn, 404, "issue_not_found", "No blocked agent found for #{issue_identifier}")
     end
   end
 

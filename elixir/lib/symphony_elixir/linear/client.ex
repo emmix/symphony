@@ -395,10 +395,14 @@ defmodule SymphonyElixir.Linear.Client do
   end
 
   defp post_graphql_request(payload, headers) do
-    Req.post(Config.settings!().tracker.endpoint,
+    tracker = Config.settings!().tracker
+    timeout = tracker.request_timeout_ms
+
+    Req.post(tracker.endpoint,
       headers: headers,
       json: payload,
-      connect_options: [timeout: 30_000]
+      connect_options: [timeout: timeout],
+      receive_timeout: timeout
     )
   end
 

@@ -21,7 +21,7 @@ defmodule SymphonyElixirWeb.Presenter do
           running: Enum.map(snapshot.running, &running_entry_payload/1),
           retrying: Enum.map(snapshot.retrying, &retry_entry_payload/1),
           blocked: Enum.map(Map.get(snapshot, :blocked, []), &blocked_entry_payload/1),
-          codex_totals: snapshot.codex_totals,
+          agent_totals: snapshot.agent_totals,
           rate_limits: snapshot.rate_limits
         }
 
@@ -62,6 +62,13 @@ defmodule SymphonyElixirWeb.Presenter do
         {:ok, Map.update!(payload, :requested_at, &DateTime.to_iso8601/1)}
     end
   end
+
+  @spec stop_payload({:ok, map()} | {:error, :not_found}) :: {:ok, map()} | {:error, :not_found}
+  def stop_payload({:ok, result}) do
+    {:ok, Map.put(result, :acted_at, DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601())}
+  end
+
+  def stop_payload({:error, :not_found}), do: {:error, :not_found}
 
   defp issue_payload_body(issue_identifier, running, retry, blocked) do
     %{
