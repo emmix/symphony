@@ -386,7 +386,7 @@ defmodule SymphonyElixir.Plane.Client do
     state_uuid = issue["state"]
     state_name = Map.get(state_map, state_uuid, state_uuid || "")
     label_names = resolve_label_names(issue["labels"], label_map)
-    first_assignee = issue["assignees"] |> List.first()
+    first_assignee = List.first(issue["assignees"] || [])
     identifier = build_issue_identifier(issue["sequence_id"], project_identifier)
     url = build_issue_url(identifier)
 
