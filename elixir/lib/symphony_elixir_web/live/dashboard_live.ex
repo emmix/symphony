@@ -60,10 +60,11 @@ defmodule SymphonyElixirWeb.DashboardLive do
               <span class="status-badge-dot"></span>
               Live
             </span>
-            <span class="status-badge status-badge-offline">
-              <span class="status-badge-dot"></span>
-              Offline
-            </span>
+            <form action="/logout" method="post" class="logout-form">
+              <input type="hidden" name="_method" value="delete" />
+              <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+              <button type="submit" class="form-button">Logout</button>
+            </form>
           </div>
         </div>
       </header>

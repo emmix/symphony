@@ -1,0 +1,33 @@
+<section class="login-shell">
+  <article class="login-card">
+    <header class="login-header">
+      <h1 class="login-title">Sign In</h1>
+      <p class="login-copy">Enter your credentials to access the Symphony dashboard.</p>
+    </header>
+
+    <.form for={%{}} action="/login" method="post" class="login-form">
+      <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+
+      <%= if @error do %>
+        <div class="form-error-banner"><%= @error %></div>
+      <% end %>
+
+      <div class="form-group">
+        <label for="email" class="form-label">Email</label>
+        <input type="email" id="email" name="email" required autocomplete="email" class="form-input" />
+      </div>
+
+      <div class="form-group">
+        <label for="password" class="form-label">Password</label>
+        <input type="password" id="password" name="password" required autocomplete="current-password" class="form-input" />
+      </div>
+
+      <div class="form-group form-group-row">
+        <input type="checkbox" id="remember_me" name="remember_me" value="true" class="form-checkbox" />
+        <label for="remember_me" class="form-label-inline">Remember me</label>
+      </div>
+
+      <button type="submit" class="form-button">Sign In</button>
+    </.form>
+  </article>
+</section>

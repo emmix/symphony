@@ -1694,6 +1694,7 @@ defmodule SymphonyElixir.Orchestrator do
   defp summarize_update_message(%{payload: %{text: text}}) when is_binary(text) and text != "", do: text
   defp summarize_update_message(%{payload: %{reason: reason}}) when is_binary(reason), do: reason
   defp summarize_update_message(%{payload: payload}) when is_binary(payload), do: payload
+
   defp summarize_update_message(%{payload: payload}) when is_map(payload) do
     text = Map.get(payload, :text)
     session_id = Map.get(payload, :session_id)
@@ -1704,6 +1705,7 @@ defmodule SymphonyElixir.Orchestrator do
       true -> payload
     end
   end
+
   defp summarize_update_message(update), do: update[:raw]
 
   defp schedule_tick(%State{} = state, delay_ms) when is_integer(delay_ms) and delay_ms >= 0 do

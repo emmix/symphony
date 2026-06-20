@@ -6,12 +6,22 @@ defmodule SymphonyElixirWeb.Router do
   use Phoenix.Router
   import Phoenix.LiveView.Router
 
+  alias SymphonyElixirWeb.Plugs.{RequireAuth, RedirectIfAuthenticated}
+
   pipeline :browser do
     plug(:fetch_session)
     plug(:fetch_live_flash)
     plug(:put_root_layout, html: {SymphonyElixirWeb.Layouts, :root})
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
+  end
+
+  pipeline :authenticated do
+    plug(RequireAuth)
+  end
+
+  pipeline :guest do
+    plug(RedirectIfAuthenticated)
   end
 
   scope "/", SymphonyElixirWeb do
@@ -23,9 +33,17 @@ defmodule SymphonyElixirWeb.Router do
   end
 
   scope "/", SymphonyElixirWeb do
-    pipe_through(:browser)
+    pipe_through([:browser, :guest])
+
+    get("/login", SessionController, :new)
+    post("/login", SessionController, :create)
+  end
+
+  scope "/", SymphonyElixirWeb do
+    pipe_through([:browser, :authenticated])
 
     live("/", DashboardLive, :index)
+    delete("/logout", SessionController, :delete)
   end
 
   scope "/", SymphonyElixirWeb do
