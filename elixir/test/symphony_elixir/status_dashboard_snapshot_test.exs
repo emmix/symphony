@@ -3,7 +3,7 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
 
   alias SymphonyElixir.TestSupport.Snapshot
 
-  @terminal_columns 121
+  @terminal_columns 156
 
   test "snapshot fixture: idle dashboard" do
     snapshot_data =
