@@ -20,11 +20,11 @@ defmodule SymphonyElixir.StatusDashboard do
   @running_pid_width 8
   @running_age_width 12
   @running_tokens_width 10
-  @running_session_width 14
+  @running_session_width 36
   @running_event_default_width 44
   @running_event_min_width 12
   @running_row_chrome_width 10
-  @default_terminal_columns 121
+  @default_terminal_columns 148
 
   @ansi_reset IO.ANSI.reset()
   @ansi_bold IO.ANSI.bright()
@@ -602,7 +602,7 @@ defmodule SymphonyElixir.StatusDashboard do
     issue = format_cell(running_entry.identifier || "unknown", @running_id_width)
     state = running_entry.state || "unknown"
     state_display = format_cell(to_string(state), @running_stage_width)
-    session = running_entry.session_id |> compact_session_id() |> format_cell(@running_session_width)
+    session = format_cell(running_entry.session_id || "n/a", @running_session_width)
     pid = format_cell(running_entry.codex_app_server_pid || "n/a", @running_pid_width)
     total_tokens = running_entry.codex_total_tokens || 0
     runtime_seconds = running_entry.runtime_seconds || 0
@@ -840,27 +840,6 @@ defmodule SymphonyElixir.StatusDashboard do
     end
   end
 
-  defp compact_session_id(nil), do: "n/a"
-  defp compact_session_id(session_id) when not is_binary(session_id), do: "n/a"
-
-  defp compact_session_id(session_id) do
-    if String.length(session_id) > 10 do
-      String.slice(session_id, 0, 4) <> "..." <> String.slice(session_id, -6, 6)
-    else
-      session_id
-    end
-  end
-
-  defp group_thousands(value) when is_binary(value) do
-    sign = if String.starts_with?(value, "-"), do: "-", else: ""
-    unsigned = if sign == "", do: value, else: String.slice(value, 1, String.length(value) - 1)
-
-    unsigned
-    |> String.reverse()
-    |> String.replace(~r/(\d{3})(?=\d)/, "\\1,")
-    |> String.reverse()
-    |> prepend(sign)
-  end
 
   defp prepend("", value), do: value
   defp prepend(prefix, value), do: prefix <> value
