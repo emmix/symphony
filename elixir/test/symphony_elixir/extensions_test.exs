@@ -752,6 +752,12 @@ defmodule SymphonyElixir.ExtensionsTest do
     |> Phoenix.ConnTest.init_test_session(%{user_id: "user-1"})
   end
 
+  defp authenticated_conn do
+    build_conn()
+    |> Map.replace!(:secret_key_base, SymphonyElixirWeb.Endpoint.config(:secret_key_base))
+    |> Phoenix.ConnTest.init_test_session(%{user_id: "user-1"})
+  end
+
   defp start_test_endpoint(overrides) do
     endpoint_config =
       :symphony_elixir
