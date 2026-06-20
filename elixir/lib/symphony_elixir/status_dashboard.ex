@@ -20,7 +20,7 @@ defmodule SymphonyElixir.StatusDashboard do
   @running_pid_width 8
   @running_age_width 12
   @running_tokens_width 10
-  @running_session_width 36
+  @running_session_min_width 14
   @running_event_default_width 44
   @running_event_min_width 12
   @running_row_chrome_width 10
@@ -342,8 +342,9 @@ defmodule SymphonyElixir.StatusDashboard do
         agent_seconds_running = Map.get(agent_totals, :seconds_running, 0)
         agent_count = length(running)
         max_agents = Config.settings!().agent.max_concurrent_agents
-        running_event_width = running_event_width(terminal_columns_override)
-        running_rows = format_running_rows(running, running_event_width)
+        running_session_width = running_session_width(running, terminal_columns_override)
+        running_event_width = running_event_width(running_session_width, terminal_columns_override)
+        running_rows = format_running_rows(running, running_session_width, running_event_width)
         running_to_backoff_spacer = if(running == [], do: [], else: ["│"])
         backoff_rows = format_retry_rows(retrying)
 
@@ -367,8 +368,8 @@ defmodule SymphonyElixir.StatusDashboard do
            project_refresh_line,
            colorize("├─ Running", @ansi_bold),
            "│",
-           running_table_header_row(running_event_width),
-           running_table_separator_row(running_event_width)
+           running_table_header_row(running_session_width, running_event_width),
+           running_table_separator_row(running_session_width, running_event_width)
          ] ++
            running_rows ++
            running_to_backoff_spacer ++
@@ -584,7 +585,7 @@ defmodule SymphonyElixir.StatusDashboard do
     end
   end
 
-  defp format_running_rows(running, running_event_width) do
+  defp format_running_rows(running, running_session_width, running_event_width) do
     if running == [] do
       [
         "│  " <> colorize("No active agents", @ansi_gray),
@@ -593,16 +594,16 @@ defmodule SymphonyElixir.StatusDashboard do
     else
       running
       |> Enum.sort_by(& &1.identifier)
-      |> Enum.map(&format_running_summary(&1, running_event_width))
+      |> Enum.map(&format_running_summary(&1, running_session_width, running_event_width))
     end
   end
 
   # credo:disable-for-next-line
-  defp format_running_summary(running_entry, running_event_width) do
+  defp format_running_summary(running_entry, running_session_width, running_event_width) do
     issue = format_cell(running_entry.identifier || "unknown", @running_id_width)
     state = running_entry.state || "unknown"
     state_display = format_cell(to_string(state), @running_stage_width)
-    session = format_cell(running_entry.session_id || "n/a", @running_session_width)
+    session = format_cell(running_entry.session_id || "n/a", running_session_width)
     pid = format_cell(running_entry.codex_app_server_pid || "n/a", @running_pid_width)
     total_tokens = running_entry.codex_total_tokens || 0
     runtime_seconds = running_entry.runtime_seconds || 0
@@ -645,8 +646,10 @@ defmodule SymphonyElixir.StatusDashboard do
 
   @doc false
   @spec format_running_summary_for_test(map(), integer() | nil) :: String.t()
-  def format_running_summary_for_test(running_entry, terminal_columns \\ nil),
-    do: format_running_summary(running_entry, running_event_width(terminal_columns))
+  def format_running_summary_for_test(running_entry, terminal_columns \\ nil) do
+    session_width = max(@running_session_min_width, byte_size(to_string(running_entry.session_id || "n/a")))
+    format_running_summary(running_entry, session_width, running_event_width(session_width, terminal_columns))
+  end
 
   @doc false
   @spec format_tps_for_test(number()) :: String.t()
@@ -747,7 +750,7 @@ defmodule SymphonyElixir.StatusDashboard do
 
   defp format_count(value), do: to_string(value)
 
-  defp running_table_header_row(running_event_width) do
+  defp running_table_header_row(running_session_width, running_event_width) do
     header =
       [
         format_cell("ID", @running_id_width),
@@ -755,7 +758,7 @@ defmodule SymphonyElixir.StatusDashboard do
         format_cell("PID", @running_pid_width),
         format_cell("AGE / TURN", @running_age_width),
         format_cell("TOKENS", @running_tokens_width),
-        format_cell("SESSION", @running_session_width),
+        format_cell("SESSION", running_session_width),
         format_cell("EVENT", running_event_width)
       ]
       |> Enum.join(" ")
@@ -763,35 +766,62 @@ defmodule SymphonyElixir.StatusDashboard do
     "│   " <> colorize(header, @ansi_gray)
   end
 
-  defp running_table_separator_row(running_event_width) do
+  defp running_table_separator_row(running_session_width, running_event_width) do
     separator_width =
       @running_id_width +
         @running_stage_width +
         @running_pid_width +
         @running_age_width +
         @running_tokens_width +
-        @running_session_width +
+        running_session_width +
         running_event_width + 6
 
     "│   " <> colorize(String.duplicate("─", separator_width), @ansi_gray)
   end
 
-  defp running_event_width(terminal_columns) do
+  defp running_event_width(running_session_width, terminal_columns) do
     terminal_columns = terminal_columns || terminal_columns()
 
     max(
       @running_event_min_width,
-      terminal_columns - fixed_running_width() - @running_row_chrome_width
+      terminal_columns - fixed_running_width(running_session_width) - @running_row_chrome_width
     )
   end
 
-  defp fixed_running_width do
+  defp running_session_width(running, terminal_columns) do
+    terminal_cols = terminal_columns || terminal_columns()
+
+    max_session_len =
+      case running do
+        [] -> 0
+        entries -> entries |> Enum.map(fn e -> byte_size(to_string(e.session_id || "n/a")) end) |> Enum.max()
+      end
+
+    max(
+      @running_session_min_width,
+      min(
+        max_session_len,
+        terminal_cols - fixed_running_without_session() - @running_row_chrome_width -
+          @running_event_min_width
+      )
+    )
+  end
+
+  defp fixed_running_width(running_session_width) do
     @running_id_width +
       @running_stage_width +
       @running_pid_width +
       @running_age_width +
       @running_tokens_width +
-      @running_session_width
+      running_session_width
+  end
+
+  defp fixed_running_without_session do
+    @running_id_width +
+      @running_stage_width +
+      @running_pid_width +
+      @running_age_width +
+      @running_tokens_width
   end
 
   defp terminal_columns do
@@ -807,7 +837,7 @@ defmodule SymphonyElixir.StatusDashboard do
   defp terminal_columns_from_env do
     case System.get_env("COLUMNS") do
       nil ->
-        fixed_running_width() + @running_row_chrome_width + @running_event_default_width
+        fixed_running_width(@running_session_min_width) + @running_row_chrome_width + @running_event_default_width
 
       value ->
         case Integer.parse(String.trim(value)) do
