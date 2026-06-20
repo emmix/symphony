@@ -7,6 +7,14 @@
         "-y",
         "linear-mcp-server"
       ]
+    },
+    "plane-mcp": {
+      "type": "stdio",
+      "command": "/home/jin/.local/bin/plane-mcp-server",
+      "env": {
+        "PLANE_BASE_URL": "http://localhost",
+        "DEFAULT_WORKSPACE_SLUG": "jin"
+      }
     }
   }
 }
