@@ -16,6 +16,7 @@ defmodule SymphonyElixirWeb.SessionController do
   @doc """
   Renders the login form.
   """
+  @spec new(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def new(conn, _params) do
     error = Phoenix.Flash.get(conn.assigns.flash, :error)
     render(conn, :new, error: error)
@@ -24,6 +25,7 @@ defmodule SymphonyElixirWeb.SessionController do
   @doc """
   Handles login form submission.
   """
+  @spec create(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def create(conn, %{"email" => email, "password" => password, "remember_me" => "true"}) do
     do_login(conn, email, password, true)
   end
@@ -41,6 +43,7 @@ defmodule SymphonyElixirWeb.SessionController do
   @doc """
   Handles logout.
   """
+  @spec delete(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def delete(conn, _params) do
     conn
     |> configure_session(drop: true)

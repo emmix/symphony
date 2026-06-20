@@ -740,7 +740,7 @@ defmodule SymphonyElixir.ExtensionsTest do
   end
 
   defp authenticated_conn do
-    Plug.Test.conn(:get, "/")
+    build_conn()
     |> Plug.Test.init_test_session(%{user_id: "user-1"})
   end
 
