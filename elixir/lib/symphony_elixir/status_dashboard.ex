@@ -20,7 +20,7 @@ defmodule SymphonyElixir.StatusDashboard do
   @running_pid_width 8
   @running_age_width 12
   @running_tokens_width 10
-  @running_session_width 14
+  @running_session_width 28
   @running_event_default_width 44
   @running_event_min_width 12
   @running_row_chrome_width 10
@@ -602,7 +602,7 @@ defmodule SymphonyElixir.StatusDashboard do
     issue = format_cell(running_entry.identifier || "unknown", @running_id_width)
     state = running_entry.state || "unknown"
     state_display = format_cell(to_string(state), @running_stage_width)
-    session = running_entry.session_id |> compact_session_id() |> format_cell(@running_session_width)
+    session = format_cell(running_entry.session_id || "n/a", @running_session_width)
     pid = format_cell(running_entry.codex_app_server_pid || "n/a", @running_pid_width)
     total_tokens = running_entry.codex_total_tokens || 0
     runtime_seconds = running_entry.runtime_seconds || 0
@@ -837,17 +837,6 @@ defmodule SymphonyElixir.StatusDashboard do
       value
     else
       String.slice(value, 0, width - 3) <> "..."
-    end
-  end
-
-  defp compact_session_id(nil), do: "n/a"
-  defp compact_session_id(session_id) when not is_binary(session_id), do: "n/a"
-
-  defp compact_session_id(session_id) do
-    if String.length(session_id) > 10 do
-      String.slice(session_id, 0, 4) <> "..." <> String.slice(session_id, -6, 6)
-    else
-      session_id
     end
   end
 
