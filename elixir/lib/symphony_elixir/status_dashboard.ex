@@ -15,7 +15,7 @@ defmodule SymphonyElixir.StatusDashboard do
   @throughput_graph_window_ms 10 * 60 * 1000
   @throughput_graph_columns 24
   @sparkline_blocks ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
-  @running_id_width 8
+  @running_id_width 14
   @running_stage_width 14
   @running_pid_width 8
   @running_age_width 12
@@ -24,7 +24,7 @@ defmodule SymphonyElixir.StatusDashboard do
   @running_event_default_width 44
   @running_event_min_width 12
   @running_row_chrome_width 10
-  @default_terminal_columns 115
+  @default_terminal_columns 121
 
   @ansi_reset IO.ANSI.reset()
   @ansi_bold IO.ANSI.bright()

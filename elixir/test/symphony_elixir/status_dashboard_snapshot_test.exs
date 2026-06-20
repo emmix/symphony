@@ -3,7 +3,7 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
 
   alias SymphonyElixir.TestSupport.Snapshot
 
-  @terminal_columns 115
+  @terminal_columns 121
 
   test "snapshot fixture: idle dashboard" do
     snapshot_data =
@@ -49,7 +49,7 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
        %{
          running: [
            running_entry(%{
-             identifier: "MT-101",
+             identifier: "SYMPHONY-101",
              codex_total_tokens: 120_450,
              runtime_seconds: 785,
              turn_count: 11,
@@ -57,7 +57,7 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
              last_codex_message: turn_completed_message("completed")
            }),
            running_entry(%{
-             identifier: "MT-102",
+             identifier: "SYMPHONY-102",
              session_id: "thread-abcdef1234567890",
              codex_app_server_pid: "5252",
              codex_total_tokens: 89_200,
@@ -91,7 +91,7 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
        %{
          running: [
            running_entry(%{
-             identifier: "MT-638",
+             identifier: "SYMPHONY-638",
              state: "retrying",
              codex_total_tokens: 14_200,
              runtime_seconds: 1_225,
@@ -102,25 +102,25 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
          ],
          retrying: [
            retry_entry(%{
-             identifier: "MT-450",
+             identifier: "SYMPHONY-450",
              attempt: 4,
              due_in_ms: 1_250,
              error: "rate limit exhausted"
            }),
            retry_entry(%{
-             identifier: "MT-451",
+             identifier: "SYMPHONY-451",
              attempt: 2,
              due_in_ms: 3_900,
              error: "retrying after API timeout with jitter"
            }),
            retry_entry(%{
-             identifier: "MT-452",
+             identifier: "SYMPHONY-452",
              attempt: 6,
              due_in_ms: 8_100,
              error: "worker crashed\nrestarting cleanly"
            }),
            retry_entry(%{
-             identifier: "MT-453",
+             identifier: "SYMPHONY-453",
              attempt: 1,
              due_in_ms: 11_000,
              error: "fourth queued retry should also render after removing the top-three limit"
@@ -145,7 +145,7 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
          running: [],
          retrying: [
            retry_entry(%{
-             identifier: "MT-980",
+             identifier: "SYMPHONY-980",
              attempt: 1,
              due_in_ms: 1_500,
              error: "error with \\nnewline"
@@ -156,7 +156,7 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
        }}
 
     rendered = render_snapshot(snapshot_data, 0.0)
-    backoff_lines = rendered |> String.split("\n") |> Enum.filter(&String.contains?(&1, "MT-980"))
+    backoff_lines = rendered |> String.split("\n") |> Enum.filter(&String.contains?(&1, "SYMPHONY-980"))
 
     assert length(backoff_lines) == 1
 
@@ -172,7 +172,7 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
        %{
          running: [
            running_entry(%{
-             identifier: "MT-777",
+             identifier: "SYMPHONY-777",
              state: "running",
              codex_total_tokens: 3_200,
              runtime_seconds: 75,
@@ -201,7 +201,7 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
   defp running_entry(overrides) do
     Map.merge(
       %{
-        identifier: "MT-000",
+        identifier: "SYMPHONY-000",
         state: "running",
         session_id: "thread-1234567890",
         codex_app_server_pid: "4242",
@@ -219,7 +219,7 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
     Map.merge(
       %{
         issue_id: "issue-1",
-        identifier: "MT-000",
+        identifier: "SYMPHONY-000",
         attempt: 1,
         due_in_ms: 1_000,
         error: "retry scheduled"
