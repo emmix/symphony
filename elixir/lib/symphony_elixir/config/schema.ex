@@ -54,6 +54,9 @@ defmodule SymphonyElixir.Config.Schema do
       field(:active_states, {:array, :string}, default: ["Todo", "In Progress"])
       field(:terminal_states, {:array, :string}, default: ["Closed", "Cancelled", "Canceled", "Duplicate", "Done"])
       field(:request_timeout_ms, :integer, default: 60_000)
+      field(:host, :string)
+      field(:workspace_slug, :string)
+      field(:project_id, :string)
     end
 
     @spec changeset(%__MODULE__{}, map()) :: Ecto.Changeset.t()
@@ -61,7 +64,7 @@ defmodule SymphonyElixir.Config.Schema do
       schema
       |> cast(
         attrs,
-        [:kind, :endpoint, :api_key, :project_slug, :assignee, :required_labels, :active_states, :terminal_states, :request_timeout_ms],
+        [:kind, :endpoint, :api_key, :project_slug, :assignee, :required_labels, :active_states, :terminal_states, :request_timeout_ms, :host, :workspace_slug, :project_id],
         empty_values: []
       )
       |> update_change(:required_labels, fn labels ->
@@ -403,10 +406,18 @@ defmodule SymphonyElixir.Config.Schema do
   end
 
   defp finalize_settings(settings) do
+    api_key_fallback =
+      if settings.tracker.kind == "plane",
+        do: System.get_env("PLANE_API_KEY"),
+        else: System.get_env("LINEAR_API_KEY")
+
     tracker = %{
       settings.tracker
-      | api_key: resolve_secret_setting(settings.tracker.api_key, System.get_env("LINEAR_API_KEY")),
-        assignee: resolve_secret_setting(settings.tracker.assignee, System.get_env("LINEAR_ASSIGNEE"))
+      | api_key: resolve_secret_setting(settings.tracker.api_key, api_key_fallback),
+        assignee: resolve_secret_setting(settings.tracker.assignee, System.get_env("LINEAR_ASSIGNEE")),
+        host: resolve_env_value(settings.tracker.host, nil),
+        workspace_slug: resolve_env_value(settings.tracker.workspace_slug, nil),
+        project_id: resolve_env_value(settings.tracker.project_id, nil)
     }
 
     workspace = %{
@@ -476,6 +487,8 @@ defmodule SymphonyElixir.Config.Schema do
         path
     end
   end
+
+  defp resolve_env_value(value, _fallback) when not is_binary(value), do: value
 
   defp resolve_env_value(value, fallback) when is_binary(value) do
     case env_reference_name(value) do

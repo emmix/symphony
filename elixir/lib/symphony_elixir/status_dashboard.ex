@@ -393,12 +393,18 @@ defmodule SymphonyElixir.StatusDashboard do
   end
 
   defp format_project_link_lines do
-    project_part =
-      case Config.settings!().tracker.project_slug do
-        project_slug when is_binary(project_slug) and project_slug != "" ->
-          colorize(linear_project_url(project_slug), @ansi_cyan)
+    tracker = Config.settings!().tracker
 
-        _ ->
+    project_part =
+      cond do
+        is_binary(tracker.project_slug) and tracker.project_slug != "" ->
+          colorize(linear_project_url(tracker.project_slug), @ansi_cyan)
+
+        tracker.kind == "plane" and is_binary(tracker.host) and is_binary(tracker.workspace_slug) and
+            is_binary(tracker.project_id) ->
+          colorize(plane_project_url(tracker.host, tracker.workspace_slug, tracker.project_id), @ansi_cyan)
+
+        true ->
           colorize("n/a", @ansi_gray)
       end
 
@@ -428,6 +434,11 @@ defmodule SymphonyElixir.StatusDashboard do
   end
 
   defp linear_project_url(project_slug), do: "https://linear.app/project/#{project_slug}/issues"
+
+  defp plane_project_url(host, workspace_slug, project_id) do
+    h = String.trim_trailing(host, "/")
+    "#{h}/#{workspace_slug}/projects/#{project_id}/issues"
+  end
 
   defp dashboard_url do
     dashboard_url(Config.settings!().server.host, Config.server_port(), HttpServer.bound_port())

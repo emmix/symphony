@@ -86,6 +86,74 @@ defmodule SymphonyElixir.CoreTest do
 
     write_workflow_file!(Workflow.workflow_file_path(), tracker_kind: "123")
     assert {:error, {:unsupported_tracker_kind, "123"}} = Config.validate!()
+
+    # Plane tracker kind - all required fields
+    write_workflow_file!(Workflow.workflow_file_path(),
+      tracker_kind: "plane",
+      tracker_endpoint: nil,
+      tracker_project_slug: nil,
+      tracker_api_token: "plane-token",
+      tracker_host: "http://localhost",
+      tracker_workspace_slug: "ws",
+      tracker_project_id: "proj-uuid"
+    )
+
+    assert :ok = Config.validate!()
+
+    # Plane missing api_key
+    saved_plane_key = System.get_env("PLANE_API_KEY")
+    System.delete_env("PLANE_API_KEY")
+    write_workflow_file!(Workflow.workflow_file_path(),
+      tracker_kind: "plane",
+      tracker_endpoint: nil,
+      tracker_project_slug: nil,
+      tracker_api_token: nil,
+      tracker_host: "http://localhost",
+      tracker_workspace_slug: "ws",
+      tracker_project_id: "proj-uuid"
+    )
+
+    assert {:error, :missing_plane_api_token} = Config.validate!()
+    restore_env("PLANE_API_KEY", saved_plane_key)
+
+    # Plane missing host
+    write_workflow_file!(Workflow.workflow_file_path(),
+      tracker_kind: "plane",
+      tracker_endpoint: nil,
+      tracker_project_slug: nil,
+      tracker_api_token: "token",
+      tracker_host: nil,
+      tracker_workspace_slug: "ws",
+      tracker_project_id: "proj-uuid"
+    )
+
+    assert {:error, :missing_plane_host} = Config.validate!()
+
+    # Plane missing workspace_slug
+    write_workflow_file!(Workflow.workflow_file_path(),
+      tracker_kind: "plane",
+      tracker_endpoint: nil,
+      tracker_project_slug: nil,
+      tracker_api_token: "token",
+      tracker_host: "http://localhost",
+      tracker_workspace_slug: nil,
+      tracker_project_id: "proj-uuid"
+    )
+
+    assert {:error, :missing_plane_workspace_slug} = Config.validate!()
+
+    # Plane missing project_id
+    write_workflow_file!(Workflow.workflow_file_path(),
+      tracker_kind: "plane",
+      tracker_endpoint: nil,
+      tracker_project_slug: nil,
+      tracker_api_token: "token",
+      tracker_host: "http://localhost",
+      tracker_workspace_slug: "ws",
+      tracker_project_id: nil
+    )
+
+    assert {:error, :missing_plane_project_id} = Config.validate!()
   end
 
   test "current WORKFLOW.md file is valid and complete" do

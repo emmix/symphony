@@ -5,6 +5,7 @@ defmodule SymphonyElixir.ExtensionsTest do
   import Phoenix.LiveViewTest
 
   alias SymphonyElixir.Linear.Adapter
+  alias SymphonyElixir.Plane.Adapter, as: PlaneAdapter
   alias SymphonyElixir.Tracker.Memory
 
   @endpoint SymphonyElixirWeb.Endpoint
@@ -203,6 +204,23 @@ defmodule SymphonyElixir.ExtensionsTest do
 
     write_workflow_file!(Workflow.workflow_file_path(), tracker_kind: "linear")
     assert SymphonyElixir.Tracker.adapter() == Adapter
+  end
+
+  test "tracker delegates to plane adapter" do
+    write_workflow_file!(Workflow.workflow_file_path(),
+      tracker_kind: "plane",
+      tracker_endpoint: nil,
+      tracker_project_slug: nil,
+      tracker_host: "http://localhost",
+      tracker_workspace_slug: "test-workspace",
+      tracker_project_id: "proj-uuid"
+    )
+
+    assert Config.settings!().tracker.kind == "plane"
+    assert SymphonyElixir.Tracker.adapter() == PlaneAdapter
+
+    # Restore default workflow
+    write_workflow_file!(Workflow.workflow_file_path())
   end
 
   test "linear adapter delegates reads and validates mutation responses" do

@@ -159,7 +159,7 @@ defmodule SymphonyElixir.Config do
       is_nil(settings.tracker.kind) ->
         {:error, :missing_tracker_kind}
 
-      settings.tracker.kind not in ["linear", "memory"] ->
+      settings.tracker.kind not in ["linear", "memory", "plane"] ->
         {:error, {:unsupported_tracker_kind, settings.tracker.kind}}
 
       settings.tracker.kind == "linear" and not is_binary(settings.tracker.api_key) ->
@@ -167,6 +167,18 @@ defmodule SymphonyElixir.Config do
 
       settings.tracker.kind == "linear" and not is_binary(settings.tracker.project_slug) ->
         {:error, :missing_linear_project_slug}
+
+      settings.tracker.kind == "plane" and not is_binary(settings.tracker.api_key) ->
+        {:error, :missing_plane_api_token}
+
+      settings.tracker.kind == "plane" and not is_binary(settings.tracker.host) ->
+        {:error, :missing_plane_host}
+
+      settings.tracker.kind == "plane" and not is_binary(settings.tracker.workspace_slug) ->
+        {:error, :missing_plane_workspace_slug}
+
+      settings.tracker.kind == "plane" and not is_binary(settings.tracker.project_id) ->
+        {:error, :missing_plane_project_id}
 
       settings.agent_type not in ["codex", "claude"] ->
         {:error, {:unsupported_agent_type, settings.agent_type}}

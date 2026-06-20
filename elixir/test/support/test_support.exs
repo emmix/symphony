@@ -100,6 +100,9 @@ defmodule SymphonyElixir.TestSupport do
           tracker_required_labels: [],
           tracker_active_states: ["Todo", "In Progress"],
           tracker_terminal_states: ["Closed", "Cancelled", "Canceled", "Duplicate", "Done"],
+          tracker_host: nil,
+          tracker_workspace_slug: nil,
+          tracker_project_id: nil,
           poll_interval_ms: 30_000,
           workspace_root: Path.join(System.tmp_dir!(), "symphony_workspaces"),
           worker_ssh_hosts: [],
@@ -143,6 +146,9 @@ defmodule SymphonyElixir.TestSupport do
     tracker_required_labels = Keyword.get(config, :tracker_required_labels)
     tracker_active_states = Keyword.get(config, :tracker_active_states)
     tracker_terminal_states = Keyword.get(config, :tracker_terminal_states)
+    tracker_host = Keyword.get(config, :tracker_host)
+    tracker_workspace_slug = Keyword.get(config, :tracker_workspace_slug)
+    tracker_project_id = Keyword.get(config, :tracker_project_id)
     poll_interval_ms = Keyword.get(config, :poll_interval_ms)
     workspace_root = Keyword.get(config, :workspace_root)
     worker_ssh_hosts = Keyword.get(config, :worker_ssh_hosts)
@@ -187,6 +193,9 @@ defmodule SymphonyElixir.TestSupport do
         "  required_labels: #{yaml_value(tracker_required_labels)}",
         "  active_states: #{yaml_value(tracker_active_states)}",
         "  terminal_states: #{yaml_value(tracker_terminal_states)}",
+        tracker_host && "  host: #{yaml_value(tracker_host)}",
+        tracker_workspace_slug && "  workspace_slug: #{yaml_value(tracker_workspace_slug)}",
+        tracker_project_id && "  project_id: #{yaml_value(tracker_project_id)}",
         "polling:",
         "  interval_ms: #{yaml_value(poll_interval_ms)}",
         "workspace:",
