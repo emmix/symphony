@@ -840,7 +840,6 @@ defmodule SymphonyElixir.StatusDashboard do
     end
   end
 
-
   defp group_thousands(value) when is_binary(value) do
     sign = if String.starts_with?(value, "-"), do: "-", else: ""
     unsigned = if sign == "", do: value, else: String.slice(value, 1, String.length(value) - 1)
