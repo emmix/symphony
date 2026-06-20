@@ -14,6 +14,7 @@ defmodule SymphonyElixir.Accounts do
           password_hash: String.t()
         }
 
+  @spec start_link(keyword()) :: Agent.on_start()
   def start_link(_opts) do
     Agent.start_link(fn -> seed_users() end, name: __MODULE__)
   end

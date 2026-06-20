@@ -8,8 +8,10 @@ defmodule SymphonyElixirWeb.Plugs.RequireAuth do
   import Phoenix.Controller
   import Plug.Conn
 
+  @spec init(keyword()) :: keyword()
   def init(opts), do: opts
 
+  @spec call(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   def call(conn, _opts) do
     if get_session(conn, :user_id) do
       conn
@@ -32,8 +34,10 @@ defmodule SymphonyElixirWeb.Plugs.RedirectIfAuthenticated do
   import Phoenix.Controller
   import Plug.Conn
 
+  @spec init(keyword()) :: keyword()
   def init(opts), do: opts
 
+  @spec call(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   def call(conn, _opts) do
     if get_session(conn, :user_id) do
       conn
