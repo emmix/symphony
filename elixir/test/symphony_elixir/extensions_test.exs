@@ -609,7 +609,7 @@ defmodule SymphonyElixir.ExtensionsTest do
     assert html =~ "turn blocked: waiting for user input"
     assert html =~ "Runtime"
     assert html =~ "Live"
-    assert html =~ "Offline"
+    assert html =~ "Logout"
     assert html =~ "Copy ID"
     assert html =~ "Codex update"
     refute html =~ "data-runtime-clock="
@@ -617,7 +617,7 @@ defmodule SymphonyElixir.ExtensionsTest do
     refute html =~ "Refresh now"
     refute html =~ "Transport"
     assert html =~ "status-badge-live"
-    assert html =~ "status-badge-offline"
+    assert html =~ "logout-form"
 
     updated_snapshot =
       put_in(snapshot.running, [
@@ -740,8 +740,14 @@ defmodule SymphonyElixir.ExtensionsTest do
   end
 
   defp authenticated_conn do
+    conn =
+      post(build_conn(), "/login", %{
+        "email" => "admin@symphony.test",
+        "password" => "password123"
+      })
+
     build_conn()
-    |> Plug.Test.init_test_session(%{user_id: "user-1"})
+    |> Plug.Test.recycle_cookies(conn)
   end
 
   defp start_test_endpoint(overrides) do

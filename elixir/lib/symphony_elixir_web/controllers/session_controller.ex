@@ -6,7 +6,6 @@ defmodule SymphonyElixirWeb.SessionController do
   use Phoenix.Controller, formats: [:html]
 
   import Plug.Conn
-  import Phoenix.Controller
 
   alias SymphonyElixir.Session
 
@@ -69,10 +68,9 @@ defmodule SymphonyElixirWeb.SessionController do
     end
   end
 
-  defp maybe_remember_me(conn, true, user_id) do
+  defp maybe_remember_me(conn, true, _user_id) do
     conn
     |> put_session(:remember_me, true)
-    |> put_session(:user_id, user_id)
     |> configure_session(max_age: @max_age_remember)
   end
 

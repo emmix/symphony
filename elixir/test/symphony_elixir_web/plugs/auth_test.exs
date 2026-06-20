@@ -1,7 +1,6 @@
 defmodule SymphonyElixirWeb.Plugs.AuthTest do
   use ExUnit.Case, async: true
   import Plug.Test
-  import Plug.Conn
 
   alias SymphonyElixirWeb.Plugs.{RequireAuth, RedirectIfAuthenticated}
 
