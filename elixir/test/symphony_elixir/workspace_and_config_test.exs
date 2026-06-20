@@ -1314,7 +1314,6 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
       "agent_type" => "claude",
       "claude" => %{"command" => "/usr/local/bin/claude", "model" => "claude-sonnet-4-6", "turn_timeout_ms" => 1_800_000}
     }
-
     assert {:ok, settings} = Schema.parse(config)
     assert settings.agent_type == "claude"
     assert settings.claude.command == "/usr/local/bin/claude"

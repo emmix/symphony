@@ -227,7 +227,9 @@ defmodule SymphonyElixir.Config.Schema do
     @spec changeset(%__MODULE__{}, map()) :: Ecto.Changeset.t()
     def changeset(schema, attrs) do
       schema
-      |> cast(attrs, [:command, :model, :session_id, :turn_timeout_ms, :stall_timeout_ms], empty_values: [])
+      |> cast(attrs, [:command, :model, :session_id, :turn_timeout_ms, :stall_timeout_ms],
+        empty_values: []
+      )
       |> validate_required([:command])
       |> validate_number(:turn_timeout_ms, greater_than: 0)
       |> validate_number(:stall_timeout_ms, greater_than_or_equal_to: 0)

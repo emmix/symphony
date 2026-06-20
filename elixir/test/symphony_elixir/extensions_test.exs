@@ -543,7 +543,7 @@ defmodule SymphonyElixir.ExtensionsTest do
 
     start_test_endpoint(orchestrator: orchestrator_name, snapshot_timeout_ms: 50)
 
-    html = html_response(get(build_conn(), "/"), 200)
+    html = html_response(get(authenticated_conn(), "/"), 200)
     assert html =~ ~r|/dashboard\.css\?v=[0-9a-f]{12}|
 
     assert html =~
@@ -596,7 +596,7 @@ defmodule SymphonyElixir.ExtensionsTest do
 
     start_test_endpoint(orchestrator: orchestrator_name, snapshot_timeout_ms: 50)
 
-    {:ok, view, html} = live(build_conn(), "/")
+    {:ok, view, html} = live(authenticated_conn(), "/")
     assert html =~ "Operations Dashboard"
     assert html =~ "MT-HTTP"
     assert html =~ "MT-RETRY"
@@ -669,7 +669,7 @@ defmodule SymphonyElixir.ExtensionsTest do
       snapshot_timeout_ms: 5
     )
 
-    {:ok, _view, html} = live(build_conn(), "/")
+    {:ok, _view, html} = live(authenticated_conn(), "/")
     assert html =~ "Snapshot unavailable"
     assert html =~ "snapshot_unavailable"
   end
@@ -737,6 +737,11 @@ defmodule SymphonyElixir.ExtensionsTest do
     assert method_not_allowed_response.body["error"]["code"] == "method_not_allowed"
 
     assert {:error, _reason} = HttpServer.start_link(host: "bad host", port: 0)
+  end
+
+  defp authenticated_conn do
+    Plug.Test.conn(:get, "/")
+    |> Plug.Test.init_test_session(%{user_id: "user-1"})
   end
 
   defp start_test_endpoint(overrides) do
