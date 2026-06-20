@@ -272,65 +272,77 @@ defmodule SymphonyElixir.Claude.Session do
 
   defp await_turn_loop(port, on_message, last_activity, cutoff, stall_timeout_ms, buffer) do
     now = System.monotonic_time(:millisecond)
-
-    stall_deadline =
-      if is_integer(last_activity) and is_integer(stall_timeout_ms) do
-        last_activity + stall_timeout_ms
-      else
-        nil
-      end
-
-    timeout =
-      cond do
-        now >= cutoff ->
-          0
-
-        is_integer(stall_deadline) ->
-          min(cutoff - now, stall_deadline - now)
-
-        true ->
-          cutoff - now
-      end
+    stall_deadline = compute_stall_deadline(last_activity, stall_timeout_ms)
+    timeout = compute_timeout(now, cutoff, stall_deadline)
 
     if timeout <= 0 do
-      cond do
-        now >= cutoff ->
-          {:error, :turn_timeout}
-
-        is_integer(stall_deadline) and now >= stall_deadline ->
-          {:error, :turn_stalled}
-
-        true ->
-          await_turn_loop(port, on_message, last_activity, cutoff, stall_timeout_ms, buffer)
-      end
+      handle_zero_timeout(now, cutoff, stall_deadline, port, on_message, last_activity, stall_timeout_ms, buffer)
     else
-      receive do
-        {^port, {:data, {:eol, line}}} ->
-          full_line = buffer <> line
-          handle_stream_line(full_line, port, on_message, cutoff, stall_timeout_ms)
+      await_port_message(port, on_message, last_activity, cutoff, stall_timeout_ms, buffer, timeout, stall_deadline)
+    end
+  end
 
-        {^port, {:data, {:noeol, partial}}} ->
-          await_turn_loop(port, on_message, now, cutoff, stall_timeout_ms, buffer <> partial)
+  defp compute_stall_deadline(last_activity, stall_timeout_ms) do
+    if is_integer(last_activity) and is_integer(stall_timeout_ms) do
+      last_activity + stall_timeout_ms
+    else
+      nil
+    end
+  end
 
-        {^port, {:exit_status, 0}} ->
-          if buffer != "" do
-            handle_stream_line(buffer, port, on_message, cutoff, stall_timeout_ms)
-          else
-            {:ok, %{}}
-          end
+  defp compute_timeout(now, cutoff, stall_deadline) do
+    cond do
+      now >= cutoff -> 0
+      is_integer(stall_deadline) -> min(cutoff - now, stall_deadline - now)
+      true -> cutoff - now
+    end
+  end
 
-        {^port, {:exit_status, status}} ->
-          {:error, {:cli_exit_with_status, status}}
-      after
-        timeout ->
-          now2 = System.monotonic_time(:millisecond)
+  defp handle_zero_timeout(now, cutoff, stall_deadline, port, on_message, last_activity, stall_timeout_ms, buffer) do
+    cond do
+      now >= cutoff ->
+        {:error, :turn_timeout}
 
-          cond do
-            now2 >= cutoff -> {:error, :turn_timeout}
-            is_integer(stall_deadline) and now2 >= stall_deadline -> {:error, :turn_stalled}
-            true -> await_turn_loop(port, on_message, last_activity, cutoff, stall_timeout_ms, buffer)
-          end
-      end
+      is_integer(stall_deadline) and now >= stall_deadline ->
+        {:error, :turn_stalled}
+
+      true ->
+        await_turn_loop(port, on_message, last_activity, cutoff, stall_timeout_ms, buffer)
+    end
+  end
+
+  defp await_port_message(port, on_message, last_activity, cutoff, stall_timeout_ms, buffer, timeout, stall_deadline) do
+    receive do
+      {^port, {:data, {:eol, line}}} ->
+        full_line = buffer <> line
+        handle_stream_line(full_line, port, on_message, cutoff, stall_timeout_ms)
+
+      {^port, {:data, {:noeol, partial}}} ->
+        now = System.monotonic_time(:millisecond)
+        await_turn_loop(port, on_message, now, cutoff, stall_timeout_ms, buffer <> partial)
+
+      {^port, {:exit_status, 0}} ->
+        if buffer != "" do
+          handle_stream_line(buffer, port, on_message, cutoff, stall_timeout_ms)
+        else
+          {:ok, %{}}
+        end
+
+      {^port, {:exit_status, status}} ->
+        {:error, {:cli_exit_with_status, status}}
+    after
+      timeout ->
+        handle_receive_timeout(cutoff, stall_deadline, port, on_message, last_activity, stall_timeout_ms, buffer)
+    end
+  end
+
+  defp handle_receive_timeout(cutoff, stall_deadline, port, on_message, last_activity, stall_timeout_ms, buffer) do
+    now = System.monotonic_time(:millisecond)
+
+    cond do
+      now >= cutoff -> {:error, :turn_timeout}
+      is_integer(stall_deadline) and now >= stall_deadline -> {:error, :turn_stalled}
+      true -> await_turn_loop(port, on_message, last_activity, cutoff, stall_timeout_ms, buffer)
     end
   end
 

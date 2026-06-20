@@ -1921,22 +1921,10 @@ defmodule SymphonyElixir.Orchestrator do
 
     cond do
       method in ["turn/completed", :turn_completed] ->
-        direct =
-          Map.get(payload, "usage") ||
-            Map.get(payload, :usage) ||
-            map_at_path(payload, ["params", "usage"]) ||
-            map_at_path(payload, [:params, :usage])
-
-        if is_map(direct) and integer_token_map?(direct), do: direct
+        extract_usage_from_payload(payload)
 
       event in [:session_completed, "session_completed"] ->
-        direct =
-          Map.get(payload, "usage") ||
-            Map.get(payload, :usage) ||
-            map_at_path(payload, ["params", "usage"]) ||
-            map_at_path(payload, [:params, :usage])
-
-        if is_map(direct) and integer_token_map?(direct), do: direct
+        extract_usage_from_payload(payload)
 
       true ->
         nil
@@ -1944,6 +1932,16 @@ defmodule SymphonyElixir.Orchestrator do
   end
 
   defp turn_completed_usage_from_payload(_payload), do: nil
+
+  defp extract_usage_from_payload(payload) do
+    direct =
+      Map.get(payload, "usage") ||
+        Map.get(payload, :usage) ||
+        map_at_path(payload, ["params", "usage"]) ||
+        map_at_path(payload, [:params, :usage])
+
+    if is_map(direct) and integer_token_map?(direct), do: direct
+  end
 
   defp rate_limits_from_payload(payload) when is_map(payload) do
     direct = Map.get(payload, "rate_limits") || Map.get(payload, :rate_limits)

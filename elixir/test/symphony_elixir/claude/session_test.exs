@@ -107,7 +107,7 @@ defmodule SymphonyElixir.Claude.SessionTest do
           type: "result",
           subtype: "success",
           usage: %{input_tokens: 200, output_tokens: 100, total_tokens: 300},
-          duration_ms: 10000,
+          duration_ms: 10_000,
           cost_usd: 0.02
         })
 

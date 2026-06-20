@@ -64,7 +64,20 @@ defmodule SymphonyElixir.Config.Schema do
       schema
       |> cast(
         attrs,
-        [:kind, :endpoint, :api_key, :project_slug, :assignee, :required_labels, :active_states, :terminal_states, :request_timeout_ms, :host, :workspace_slug, :project_id],
+        [
+          :kind,
+          :endpoint,
+          :api_key,
+          :project_slug,
+          :assignee,
+          :required_labels,
+          :active_states,
+          :terminal_states,
+          :request_timeout_ms,
+          :host,
+          :workspace_slug,
+          :project_id
+        ],
         empty_values: []
       )
       |> update_change(:required_labels, fn labels ->

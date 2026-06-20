@@ -44,29 +44,25 @@ defmodule SymphonyElixir.Plane.Client do
     if normalized_states == [] do
       {:ok, []}
     else
-      tracker = Config.settings!().tracker
-
-      cond do
-        is_nil(tracker.api_key) ->
-          {:error, :missing_plane_api_token}
-
-        is_nil(tracker.host) ->
-          {:error, :missing_plane_host}
-
-        is_nil(tracker.workspace_slug) ->
-          {:error, :missing_plane_workspace_slug}
-
-        is_nil(tracker.project_id) ->
-          {:error, :missing_plane_project_id}
-
-        true ->
-          with {:ok, project_identifier} <- fetch_project_identifier(tracker),
-               {:ok, state_map} <- fetch_state_map(tracker),
-               {:ok, label_map} <- fetch_label_map(tracker),
-               state_ids <- state_names_to_ids(normalized_states, state_map) do
-            do_fetch_by_states(tracker, state_ids, project_identifier, state_map, label_map, nil, [])
-          end
+      with {:ok, tracker} <- validate_tracker_config(),
+           {:ok, project_identifier} <- fetch_project_identifier(tracker),
+           {:ok, state_map} <- fetch_state_map(tracker),
+           {:ok, label_map} <- fetch_label_map(tracker),
+           state_ids <- state_names_to_ids(normalized_states, state_map) do
+        do_fetch_by_states(tracker, state_ids, project_identifier, state_map, label_map, nil, [])
       end
+    end
+  end
+
+  defp validate_tracker_config do
+    tracker = Config.settings!().tracker
+
+    cond do
+      is_nil(tracker.api_key) -> {:error, :missing_plane_api_token}
+      is_nil(tracker.host) -> {:error, :missing_plane_host}
+      is_nil(tracker.workspace_slug) -> {:error, :missing_plane_workspace_slug}
+      is_nil(tracker.project_id) -> {:error, :missing_plane_project_id}
+      true -> {:ok, tracker}
     end
   end
 
@@ -247,55 +243,27 @@ defmodule SymphonyElixir.Plane.Client do
   end
 
   defp do_fetch_by_states(tracker, state_ids, project_identifier, state_map, label_map, cursor, acc_issues) do
-    query =
-      case cursor do
-        nil -> [page_size: @issue_page_size]
-        c -> [page_size: @issue_page_size, cursor: c]
-      end
+    query = build_issues_query(state_ids, cursor)
 
-    query =
-      case state_ids do
-        [] -> query
-        _ -> Keyword.put(query, :state, Enum.join(state_ids, ","))
-      end
+    ctx = %{
+      tracker: tracker,
+      state_ids: state_ids,
+      identifier: project_identifier,
+      states: state_map,
+      labels: label_map
+    }
 
     case api_request(:get, "issues/", nil, query) do
       {:ok, %{"results" => results, "next_page_results" => next_page?, "next_cursor" => next_cursor}}
       when is_list(results) ->
-        issues =
-          results
-          |> Enum.map(&normalize_issue(&1, project_identifier, state_map, label_map))
-          |> Enum.reject(&is_nil/1)
-
-        updated_acc = prepend_page_issues(issues, acc_issues)
-
-        if next_page? == true and is_binary(next_cursor) and byte_size(next_cursor) > 0 do
-          do_fetch_by_states(tracker, state_ids, project_identifier, state_map, label_map, next_cursor, updated_acc)
-        else
-          {:ok, finalize_paginated_issues(updated_acc)}
-        end
+        handle_fetch_page_with_cursor(ctx, results, next_page?, next_cursor, acc_issues)
 
       {:ok, %{"results" => results, "next_page_results" => next_page?}}
       when is_list(results) ->
-        issues =
-          results
-          |> Enum.map(&normalize_issue(&1, project_identifier, state_map, label_map))
-          |> Enum.reject(&is_nil/1)
-
-        updated_acc = prepend_page_issues(issues, acc_issues)
-
-        if next_page? == true do
-          do_fetch_by_states(tracker, state_ids, project_identifier, state_map, label_map, cursor, updated_acc)
-        else
-          {:ok, finalize_paginated_issues(updated_acc)}
-        end
+        handle_fetch_page_without_cursor(ctx, results, next_page?, cursor, acc_issues)
 
       {:ok, %{"results" => results}} when is_list(results) ->
-        issues =
-          results
-          |> Enum.map(&normalize_issue(&1, project_identifier, state_map, label_map))
-          |> Enum.reject(&is_nil/1)
-
+        issues = normalize_and_filter_issues(results, project_identifier, state_map, label_map)
         {:ok, finalize_paginated_issues(prepend_page_issues(issues, acc_issues))}
 
       {:ok, _} ->
@@ -303,6 +271,47 @@ defmodule SymphonyElixir.Plane.Client do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp build_issues_query(state_ids, cursor) do
+    query =
+      case cursor do
+        nil -> [page_size: @issue_page_size]
+        c -> [page_size: @issue_page_size, cursor: c]
+      end
+
+    case state_ids do
+      [] -> query
+      _ -> Keyword.put(query, :state, Enum.join(state_ids, ","))
+    end
+  end
+
+  defp normalize_and_filter_issues(results, project_identifier, state_map, label_map) do
+    results
+    |> Enum.map(&normalize_issue(&1, project_identifier, state_map, label_map))
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp handle_fetch_page_with_cursor(ctx, results, next_page?, next_cursor, acc_issues) do
+    issues = normalize_and_filter_issues(results, ctx.identifier, ctx.states, ctx.labels)
+    updated_acc = prepend_page_issues(issues, acc_issues)
+
+    if next_page? == true and is_binary(next_cursor) and byte_size(next_cursor) > 0 do
+      do_fetch_by_states(ctx.tracker, ctx.state_ids, ctx.identifier, ctx.states, ctx.labels, next_cursor, updated_acc)
+    else
+      {:ok, finalize_paginated_issues(updated_acc)}
+    end
+  end
+
+  defp handle_fetch_page_without_cursor(ctx, results, next_page?, cursor, acc_issues) do
+    issues = normalize_and_filter_issues(results, ctx.identifier, ctx.states, ctx.labels)
+    updated_acc = prepend_page_issues(issues, acc_issues)
+
+    if next_page? == true do
+      do_fetch_by_states(ctx.tracker, ctx.state_ids, ctx.identifier, ctx.states, ctx.labels, cursor, updated_acc)
+    else
+      {:ok, finalize_paginated_issues(updated_acc)}
     end
   end
 
@@ -323,21 +332,32 @@ defmodule SymphonyElixir.Plane.Client do
 
     issues =
       batch_ids
-      |> Enum.flat_map(fn issue_id ->
-        case api_request(:get, "issues/#{issue_id}/") do
-          {:ok, %{} = issue_data} ->
-            case normalize_issue(issue_data, project_identifier, state_map, label_map) do
-              nil -> []
-              issue -> [issue]
-            end
-
-          _ ->
-            []
-        end
-      end)
+      |> Enum.flat_map(&fetch_single_issue(&1, project_identifier, state_map, label_map))
 
     updated_acc = prepend_page_issues(issues, acc_issues)
-    do_fetch_issue_states_page(tracker, rest_ids, project_identifier, state_map, label_map, updated_acc, issue_order_index)
+
+    do_fetch_issue_states_page(
+      tracker,
+      rest_ids,
+      project_identifier,
+      state_map,
+      label_map,
+      updated_acc,
+      issue_order_index
+    )
+  end
+
+  defp fetch_single_issue(issue_id, project_identifier, state_map, label_map) do
+    case api_request(:get, "issues/#{issue_id}/") do
+      {:ok, %{} = issue_data} ->
+        case normalize_issue(issue_data, project_identifier, state_map, label_map) do
+          nil -> []
+          issue -> [issue]
+        end
+
+      _ ->
+        []
+    end
   end
 
   defp prepend_page_issues(issues, acc_issues) when is_list(issues) and is_list(acc_issues) do
@@ -365,40 +385,10 @@ defmodule SymphonyElixir.Plane.Client do
   defp normalize_issue(issue, project_identifier, state_map, label_map) when is_map(issue) do
     state_uuid = issue["state"]
     state_name = Map.get(state_map, state_uuid, state_uuid || "")
-
-    label_names =
-      (issue["labels"] || [])
-      |> Enum.flat_map(fn
-        label_uuid when is_binary(label_uuid) ->
-          case Map.get(label_map, label_uuid) do
-            nil -> []
-            name -> [String.downcase(String.trim(name))]
-          end
-
-        %{"name" => name} when is_binary(name) ->
-          [String.downcase(String.trim(name))]
-
-        _ ->
-          []
-      end)
-      |> Enum.uniq()
-
-    assignees = issue["assignees"] || []
-    first_assignee = List.first(assignees)
-
-    sequence_id = issue["sequence_id"]
-    identifier = if sequence_id, do: "#{project_identifier}-#{sequence_id}", else: nil
-
-    workspace_slug = Config.settings!().tracker.workspace_slug
-    project_id = Config.settings!().tracker.project_id
-    host = (Config.settings!().tracker.host || "") |> String.trim_trailing("/")
-
-    url =
-      if identifier && workspace_slug && project_id do
-        "#{host}/#{workspace_slug}/projects/#{project_id}/issues/#{identifier}"
-      else
-        nil
-      end
+    label_names = resolve_label_names(issue["labels"], label_map)
+    first_assignee = issue["assignees"] |> List.first()
+    identifier = build_issue_identifier(issue["sequence_id"], project_identifier)
+    url = build_issue_url(identifier)
 
     %Issue{
       id: issue["id"],
@@ -419,6 +409,41 @@ defmodule SymphonyElixir.Plane.Client do
   end
 
   defp normalize_issue(_issue, _project_identifier, _state_map, _label_map), do: nil
+
+  defp resolve_label_names(labels, label_map) do
+    (labels || [])
+    |> Enum.flat_map(fn
+      label_uuid when is_binary(label_uuid) ->
+        case Map.get(label_map, label_uuid) do
+          nil -> []
+          name -> [String.downcase(String.trim(name))]
+        end
+
+      %{"name" => name} when is_binary(name) ->
+        [String.downcase(String.trim(name))]
+
+      _ ->
+        []
+    end)
+    |> Enum.uniq()
+  end
+
+  defp build_issue_identifier(sequence_id, project_identifier) do
+    if sequence_id, do: "#{project_identifier}-#{sequence_id}", else: nil
+  end
+
+  defp build_issue_url(identifier) do
+    tracker = Config.settings!().tracker
+    workspace_slug = tracker.workspace_slug
+    project_id = tracker.project_id
+    host = (tracker.host || "") |> String.trim_trailing("/")
+
+    if identifier && workspace_slug && project_id do
+      "#{host}/#{workspace_slug}/projects/#{project_id}/issues/#{identifier}"
+    else
+      nil
+    end
+  end
 
   defp strip_html(nil), do: nil
 

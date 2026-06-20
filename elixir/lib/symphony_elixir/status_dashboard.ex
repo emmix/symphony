@@ -395,20 +395,7 @@ defmodule SymphonyElixir.StatusDashboard do
 
   defp format_project_link_lines do
     tracker = Config.settings!().tracker
-
-    project_part =
-      cond do
-        is_binary(tracker.project_slug) and tracker.project_slug != "" ->
-          colorize(linear_project_url(tracker.project_slug), @ansi_cyan)
-
-        tracker.kind == "plane" and is_binary(tracker.host) and is_binary(tracker.workspace_slug) and
-            is_binary(tracker.project_id) ->
-          colorize(plane_project_url(tracker.host, tracker.workspace_slug, tracker.project_id), @ansi_cyan)
-
-        true ->
-          colorize("n/a", @ansi_gray)
-      end
-
+    project_part = format_project_part(tracker)
     project_line = colorize("│ Project: ", @ansi_bold) <> project_part
 
     case dashboard_url() do
@@ -417,6 +404,20 @@ defmodule SymphonyElixir.StatusDashboard do
 
       _ ->
         [project_line]
+    end
+  end
+
+  defp format_project_part(tracker) do
+    cond do
+      is_binary(tracker.project_slug) and tracker.project_slug != "" ->
+        colorize(linear_project_url(tracker.project_slug), @ansi_cyan)
+
+      tracker.kind == "plane" and is_binary(tracker.host) and is_binary(tracker.workspace_slug) and
+          is_binary(tracker.project_id) ->
+        colorize(plane_project_url(tracker.host, tracker.workspace_slug, tracker.project_id), @ansi_cyan)
+
+      true ->
+        colorize("n/a", @ansi_gray)
     end
   end
 

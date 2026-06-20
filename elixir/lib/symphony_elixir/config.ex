@@ -155,31 +155,48 @@ defmodule SymphonyElixir.Config do
   end
 
   defp validate_semantics(settings) do
+    with :ok <- validate_tracker_kind(settings.tracker),
+         :ok <- validate_tracker_credentials(settings.tracker) do
+      validate_agent_type(settings)
+    end
+  end
+
+  defp validate_tracker_kind(tracker) do
     cond do
-      is_nil(settings.tracker.kind) ->
-        {:error, :missing_tracker_kind}
+      is_nil(tracker.kind) -> {:error, :missing_tracker_kind}
+      tracker.kind not in ["linear", "memory", "plane"] -> {:error, {:unsupported_tracker_kind, tracker.kind}}
+      true -> :ok
+    end
+  end
 
-      settings.tracker.kind not in ["linear", "memory", "plane"] ->
-        {:error, {:unsupported_tracker_kind, settings.tracker.kind}}
+  defp validate_tracker_credentials(tracker) do
+    case tracker.kind do
+      "linear" -> validate_linear_credentials(tracker)
+      "plane" -> validate_plane_credentials(tracker)
+      _ -> :ok
+    end
+  end
 
-      settings.tracker.kind == "linear" and not is_binary(settings.tracker.api_key) ->
-        {:error, :missing_linear_api_token}
+  defp validate_linear_credentials(tracker) do
+    cond do
+      not is_binary(tracker.api_key) -> {:error, :missing_linear_api_token}
+      not is_binary(tracker.project_slug) -> {:error, :missing_linear_project_slug}
+      true -> :ok
+    end
+  end
 
-      settings.tracker.kind == "linear" and not is_binary(settings.tracker.project_slug) ->
-        {:error, :missing_linear_project_slug}
+  defp validate_plane_credentials(tracker) do
+    cond do
+      not is_binary(tracker.api_key) -> {:error, :missing_plane_api_token}
+      not is_binary(tracker.host) -> {:error, :missing_plane_host}
+      not is_binary(tracker.workspace_slug) -> {:error, :missing_plane_workspace_slug}
+      not is_binary(tracker.project_id) -> {:error, :missing_plane_project_id}
+      true -> :ok
+    end
+  end
 
-      settings.tracker.kind == "plane" and not is_binary(settings.tracker.api_key) ->
-        {:error, :missing_plane_api_token}
-
-      settings.tracker.kind == "plane" and not is_binary(settings.tracker.host) ->
-        {:error, :missing_plane_host}
-
-      settings.tracker.kind == "plane" and not is_binary(settings.tracker.workspace_slug) ->
-        {:error, :missing_plane_workspace_slug}
-
-      settings.tracker.kind == "plane" and not is_binary(settings.tracker.project_id) ->
-        {:error, :missing_plane_project_id}
-
+  defp validate_agent_type(settings) do
+    cond do
       settings.agent_type not in ["codex", "claude"] ->
         {:error, {:unsupported_agent_type, settings.agent_type}}
 

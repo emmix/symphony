@@ -47,20 +47,24 @@ defmodule SymphonyElixir.Plane.Adapter do
   defp resolve_state_id(state_name) do
     case client_module().api_request(:get, "states/") do
       {:ok, %{"results" => results}} when is_list(results) ->
-        normalized = String.downcase(String.trim(state_name))
-
-        case Enum.find(results, fn state ->
-               is_map(state) and String.downcase(String.trim(state["name"] || "")) == normalized
-             end) do
-          %{"id" => id} when is_binary(id) -> {:ok, id}
-          _ -> {:error, :state_not_found}
-        end
+        find_state_in_results(results, state_name)
 
       {:error, reason} ->
         {:error, reason}
 
       _ ->
         {:error, :state_not_found}
+    end
+  end
+
+  defp find_state_in_results(results, state_name) do
+    normalized = String.downcase(String.trim(state_name))
+
+    case Enum.find(results, fn state ->
+           is_map(state) and String.downcase(String.trim(state["name"] || "")) == normalized
+         end) do
+      %{"id" => id} when is_binary(id) -> {:ok, id}
+      _ -> {:error, :state_not_found}
     end
   end
 

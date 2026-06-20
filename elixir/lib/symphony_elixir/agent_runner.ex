@@ -95,7 +95,12 @@ defmodule SymphonyElixir.AgentRunner do
   defp send_session_pid(recipient, %Issue{id: issue_id}, %{port: port, session_id: session_id})
        when is_binary(issue_id) and is_pid(recipient) and is_binary(session_id) do
     os_pid = extract_os_pid(port)
-    runtime_info = if os_pid, do: %{codex_app_server_pid: os_pid, session_id: session_id}, else: %{session_id: session_id}
+
+    runtime_info =
+      if os_pid,
+        do: %{codex_app_server_pid: os_pid, session_id: session_id},
+        else: %{session_id: session_id}
+
     send(recipient, {:worker_runtime_info, issue_id, runtime_info})
     :ok
   end
