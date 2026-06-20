@@ -37,6 +37,11 @@ defmodule SymphonyElixir.MixProject do
           SymphonyElixirWeb.StaticAssets,
           SymphonyElixirWeb.Router,
           SymphonyElixirWeb.Router.Helpers
+        SymphonyElixir.Accounts,
+        SymphonyElixirWeb.Plugs.FetchSessionUser,
+        SymphonyElixirWeb.Plugs.RequireAuth,
+        SymphonyElixirWeb.LoginLive,
+        SymphonyElixirWeb.SessionController,
         ]
       ],
       test_ignore_filters: [
@@ -73,6 +78,7 @@ defmodule SymphonyElixir.MixProject do
       {:jason, "~> 1.4"},
       {:yaml_elixir, "~> 2.12"},
       {:solid, "~> 1.2"},
+      {:bcrypt_elixir, "~> 3.0"},
       {:ecto, "~> 3.13"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false}

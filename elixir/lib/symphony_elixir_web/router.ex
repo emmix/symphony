@@ -12,6 +12,11 @@ defmodule SymphonyElixirWeb.Router do
     plug(:put_root_layout, html: {SymphonyElixirWeb.Layouts, :root})
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
+    plug(SymphonyElixirWeb.Plugs.FetchSessionUser)
+  end
+
+  pipeline :authenticated do
+    plug(SymphonyElixirWeb.Plugs.RequireAuth)
   end
 
   scope "/", SymphonyElixirWeb do
@@ -24,6 +29,14 @@ defmodule SymphonyElixirWeb.Router do
 
   scope "/", SymphonyElixirWeb do
     pipe_through(:browser)
+
+    live("/login", LoginLive, :index)
+    post("/session", SessionController, :create)
+    delete("/session", SessionController, :delete)
+  end
+
+  scope "/", SymphonyElixirWeb do
+    pipe_through([:browser, :authenticated])
 
     live("/", DashboardLive, :index)
   end
