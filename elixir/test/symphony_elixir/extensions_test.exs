@@ -748,14 +748,18 @@ defmodule SymphonyElixir.ExtensionsTest do
       })
 
     build_conn()
-    |> Map.replace!(:secret_key_base, SymphonyElixirWeb.Endpoint.config(:secret_key_base))
-    |> Phoenix.ConnTest.init_test_session(%{user_id: "user-1"})
+    |> Plug.Test.recycle_cookies(conn)
   end
 
   defp authenticated_conn do
+    conn =
+      post(build_conn(), "/login", %{
+        "email" => "admin@symphony.test",
+        "password" => "password123"
+      })
+
     build_conn()
-    |> Map.replace!(:secret_key_base, SymphonyElixirWeb.Endpoint.config(:secret_key_base))
-    |> Phoenix.ConnTest.init_test_session(%{user_id: "user-1"})
+    |> Plug.Test.recycle_cookies(conn)
   end
 
   defp start_test_endpoint(overrides) do
