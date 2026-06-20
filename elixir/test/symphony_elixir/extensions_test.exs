@@ -617,6 +617,7 @@ defmodule SymphonyElixir.ExtensionsTest do
     refute html =~ "Refresh now"
     refute html =~ "Transport"
     assert html =~ "status-badge-live"
+    assert html =~ "status-badge-offline"
     assert html =~ "logout-form"
 
     updated_snapshot =
@@ -747,7 +748,8 @@ defmodule SymphonyElixir.ExtensionsTest do
       })
 
     build_conn()
-    |> Plug.Test.recycle_cookies(conn)
+    |> Map.replace!(:secret_key_base, SymphonyElixirWeb.Endpoint.config(:secret_key_base))
+    |> Phoenix.ConnTest.init_test_session(%{user_id: "user-1"})
   end
 
   defp start_test_endpoint(overrides) do
