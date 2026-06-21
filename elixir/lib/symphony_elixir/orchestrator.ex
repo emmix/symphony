@@ -1942,6 +1942,7 @@ defmodule SymphonyElixir.Orchestrator do
   defp absolute_token_usage_from_payload(_payload), do: nil
 
   # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
+  # credo:disable-for-next-line Credo.Check.Refactor.Nesting
   defp turn_completed_usage_from_payload(payload) when is_map(payload) do
     method = Map.get(payload, "method") || Map.get(payload, :method)
     event = Map.get(payload, "event") || Map.get(payload, :event)
