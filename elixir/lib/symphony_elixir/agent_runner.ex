@@ -171,6 +171,9 @@ defmodule SymphonyElixir.AgentRunner do
              issue,
              on_message: codex_message_handler(codex_update_recipient, issue)
            ) do
+      # Clean up any duplicate workpad comments the agent may have created during the turn
+      :ok = dedup_workpad_comments(issue)
+
       Logger.info("Completed agent run for #{issue_context(issue)} session_id=#{turn_session[:session_id]} workspace=#{workspace} turn=#{turn_number}/#{max_turns}")
 
       case continue_with_issue?(issue, issue_state_fetcher) do
