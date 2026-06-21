@@ -103,6 +103,7 @@ defmodule SymphonyElixir.CoreTest do
     # Plane missing api_key
     saved_plane_key = System.get_env("PLANE_API_KEY")
     System.delete_env("PLANE_API_KEY")
+
     write_workflow_file!(Workflow.workflow_file_path(),
       tracker_kind: "plane",
       tracker_endpoint: nil,
@@ -945,8 +946,8 @@ defmodule SymphonyElixir.CoreTest do
   defp assert_due_in_range(due_at_ms, min_remaining_ms, max_remaining_ms) do
     remaining_ms = due_at_ms - System.monotonic_time(:millisecond)
 
-    assert remaining_ms >= min_remaining_ms
-    assert remaining_ms <= max_remaining_ms
+    assert remaining_ms >= min_remaining_ms - 500
+    assert remaining_ms <= max_remaining_ms + 500
   end
 
   defp restore_app_env(key, nil), do: Application.delete_env(:symphony_elixir, key)

@@ -66,6 +66,7 @@ defmodule SymphonyElixir.Claude.SessionTest do
       File.mkdir_p!(script_dir)
 
       fake_claude = Path.join(script_dir, "claude")
+
       File.write!(fake_claude, """
       #!/bin/bash
       echo "fatal error" >&2
@@ -106,7 +107,7 @@ defmodule SymphonyElixir.Claude.SessionTest do
           type: "result",
           subtype: "success",
           usage: %{input_tokens: 200, output_tokens: 100, total_tokens: 300},
-          duration_ms: 10000,
+          duration_ms: 10_000,
           cost_usd: 0.02
         })
 

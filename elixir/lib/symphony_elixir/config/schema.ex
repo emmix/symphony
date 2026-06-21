@@ -64,7 +64,20 @@ defmodule SymphonyElixir.Config.Schema do
       schema
       |> cast(
         attrs,
-        [:kind, :endpoint, :api_key, :project_slug, :assignee, :required_labels, :active_states, :terminal_states, :request_timeout_ms, :host, :workspace_slug, :project_id],
+        [
+          :kind,
+          :endpoint,
+          :api_key,
+          :project_slug,
+          :assignee,
+          :required_labels,
+          :active_states,
+          :terminal_states,
+          :request_timeout_ms,
+          :host,
+          :workspace_slug,
+          :project_id
+        ],
         empty_values: []
       )
       |> update_change(:required_labels, fn labels ->
@@ -227,9 +240,7 @@ defmodule SymphonyElixir.Config.Schema do
     @spec changeset(%__MODULE__{}, map()) :: Ecto.Changeset.t()
     def changeset(schema, attrs) do
       schema
-      |> cast(attrs, [:command, :model, :session_id, :turn_timeout_ms, :stall_timeout_ms],
-        empty_values: []
-      )
+      |> cast(attrs, [:command, :model, :session_id, :turn_timeout_ms, :stall_timeout_ms], empty_values: [])
       |> validate_required([:command])
       |> validate_number(:turn_timeout_ms, greater_than: 0)
       |> validate_number(:stall_timeout_ms, greater_than_or_equal_to: 0)

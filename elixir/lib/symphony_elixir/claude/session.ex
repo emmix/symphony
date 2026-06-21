@@ -372,6 +372,7 @@ defmodule SymphonyElixir.Claude.Session do
     usage = Map.get(event, "usage", %{})
     input_tokens = Map.get(usage, "input_tokens", 0)
     output_tokens = Map.get(usage, "output_tokens", 0)
+
     %{
       input_tokens: input_tokens,
       output_tokens: output_tokens,
@@ -410,6 +411,8 @@ defmodule SymphonyElixir.Claude.Session do
     end
   end
 
+  # Defensive fallback for non-port values
+  @dialyzer {:no_match, stop_port: 1}
   defp stop_port(_port), do: :ok
 
   defp port_metadata(port, worker_host) when is_port(port) do

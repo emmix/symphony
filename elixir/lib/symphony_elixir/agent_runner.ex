@@ -96,7 +96,12 @@ defmodule SymphonyElixir.AgentRunner do
   defp send_session_pid(recipient, %Issue{id: issue_id}, %{port: port, session_id: session_id})
        when is_binary(issue_id) and is_pid(recipient) and is_binary(session_id) do
     os_pid = extract_os_pid(port)
-    runtime_info = if os_pid, do: %{codex_app_server_pid: os_pid, session_id: session_id}, else: %{session_id: session_id}
+
+    runtime_info =
+      if os_pid,
+        do: %{codex_app_server_pid: os_pid, session_id: session_id},
+        else: %{session_id: session_id}
+
     send(recipient, {:worker_runtime_info, issue_id, runtime_info})
     :ok
   end
@@ -116,6 +121,8 @@ defmodule SymphonyElixir.AgentRunner do
     end
   end
 
+  # Defensive fallback for non-port values
+  @dialyzer {:no_match, extract_os_pid: 1}
   defp extract_os_pid(_port), do: nil
 
   defp start_agent_session(workspace, opts) do
@@ -166,6 +173,9 @@ defmodule SymphonyElixir.AgentRunner do
              issue,
              on_message: codex_message_handler(codex_update_recipient, issue)
            ) do
+      # Clean up any duplicate workpad comments the agent may have created during the turn
+      :ok = dedup_workpad_comments(issue)
+
       Logger.info("Completed agent run for #{issue_context(issue)} session_id=#{turn_session[:session_id]} workspace=#{workspace} turn=#{turn_number}/#{max_turns}")
 
       case continue_with_issue?(issue, issue_state_fetcher) do

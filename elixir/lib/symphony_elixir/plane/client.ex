@@ -337,7 +337,16 @@ defmodule SymphonyElixir.Plane.Client do
       end)
 
     updated_acc = prepend_page_issues(issues, acc_issues)
-    do_fetch_issue_states_page(tracker, rest_ids, project_identifier, state_map, label_map, updated_acc, issue_order_index)
+
+    do_fetch_issue_states_page(
+      tracker,
+      rest_ids,
+      project_identifier,
+      state_map,
+      label_map,
+      updated_acc,
+      issue_order_index
+    )
   end
 
   defp prepend_page_issues(issues, acc_issues) when is_list(issues) and is_list(acc_issues) do
