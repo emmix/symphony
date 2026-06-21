@@ -372,6 +372,7 @@ defmodule SymphonyElixir.Claude.Session do
     usage = Map.get(event, "usage", %{})
     input_tokens = Map.get(usage, "input_tokens", 0)
     output_tokens = Map.get(usage, "output_tokens", 0)
+
     %{
       input_tokens: input_tokens,
       output_tokens: output_tokens,

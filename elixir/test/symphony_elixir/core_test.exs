@@ -103,6 +103,7 @@ defmodule SymphonyElixir.CoreTest do
     # Plane missing api_key
     saved_plane_key = System.get_env("PLANE_API_KEY")
     System.delete_env("PLANE_API_KEY")
+
     write_workflow_file!(Workflow.workflow_file_path(),
       tracker_kind: "plane",
       tracker_endpoint: nil,

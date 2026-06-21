@@ -285,7 +285,10 @@ defmodule SymphonyElixir.Plane.Client do
         updated_acc = prepend_page_issues(issues, acc_issues)
 
         if next_page? == true do
-          do_fetch_by_states(tracker, state_ids, project_identifier, state_map, label_map, cursor, updated_acc)
+          # If no next_cursor was provided in the response, we cannot advance
+          # pagination. Re-fetching with the same cursor would produce duplicates,
+          # so stop and return what we have.
+          {:ok, finalize_paginated_issues(updated_acc)}
         else
           {:ok, finalize_paginated_issues(updated_acc)}
         end
@@ -344,7 +347,11 @@ defmodule SymphonyElixir.Plane.Client do
     Enum.reverse(issues, acc_issues)
   end
 
-  defp finalize_paginated_issues(acc_issues) when is_list(acc_issues), do: Enum.reverse(acc_issues)
+  defp finalize_paginated_issues(acc_issues) when is_list(acc_issues) do
+    acc_issues
+    |> Enum.reverse()
+    |> Enum.uniq_by(& &1.id)
+  end
 
   defp issue_order_index(ids) when is_list(ids) do
     ids

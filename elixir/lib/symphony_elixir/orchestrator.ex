@@ -181,29 +181,6 @@ defmodule SymphonyElixir.Orchestrator do
 
   def handle_info({:codex_worker_update, _issue_id, _update}, state), do: {:noreply, state}
 
-  def handle_info(
-        {:agent_worker_update, issue_id, %{event: _, timestamp: _} = update},
-        %{running: running} = state
-      ) do
-    case Map.get(running, issue_id) do
-      nil ->
-        {:noreply, state}
-
-      running_entry ->
-        {updated_running_entry, token_delta} = integrate_agent_update(running_entry, update)
-
-        state =
-          state
-          |> apply_agent_token_delta(token_delta)
-          |> apply_agent_rate_limits(update)
-
-        notify_dashboard()
-        {:noreply, %{state | running: Map.put(running, issue_id, updated_running_entry)}}
-    end
-  end
-
-  def handle_info({:agent_worker_update, _issue_id, _update}, state), do: {:noreply, state}
-
   def handle_info({:retry_issue, issue_id, retry_token}, state) do
     result =
       case pop_retry_attempt_state(state, issue_id, retry_token) do
@@ -1694,6 +1671,7 @@ defmodule SymphonyElixir.Orchestrator do
   defp summarize_update_message(%{payload: %{text: text}}) when is_binary(text) and text != "", do: text
   defp summarize_update_message(%{payload: %{reason: reason}}) when is_binary(reason), do: reason
   defp summarize_update_message(%{payload: payload}) when is_binary(payload), do: payload
+
   defp summarize_update_message(%{payload: payload}) when is_map(payload) do
     text = Map.get(payload, :text)
     session_id = Map.get(payload, :session_id)
@@ -1704,6 +1682,7 @@ defmodule SymphonyElixir.Orchestrator do
       true -> payload
     end
   end
+
   defp summarize_update_message(update), do: update[:raw]
 
   defp schedule_tick(%State{} = state, delay_ms) when is_integer(delay_ms) and delay_ms >= 0 do
