@@ -58,7 +58,7 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
            }),
            running_entry(%{
              identifier: "SYMPHONY-102",
-             session_id: "thread-abcdef1234567890",
+             session_id: "2afd1234-5678-9abc-def0-12345a017eff",
              codex_app_server_pid: "5252",
              codex_total_tokens: 89_200,
              runtime_seconds: 412,
@@ -203,7 +203,7 @@ defmodule SymphonyElixir.StatusDashboardSnapshotTest do
       %{
         identifier: "SYMPHONY-000",
         state: "running",
-        session_id: "thread-1234567890",
+        session_id: "abcd1234-5678-9def-0123-456789abcdef",
         codex_app_server_pid: "4242",
         codex_total_tokens: 0,
         runtime_seconds: 0,

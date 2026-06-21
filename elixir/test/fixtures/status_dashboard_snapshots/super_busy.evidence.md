@@ -12,7 +12,7 @@
 │   ID             STAGE          PID      AGE / TURN   TOKENS     SESSION                              EVENT            
 │   ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 │ ● SYMPHONY-101   running        4242     13m 5s / 11     120,450 abcd1234-5678-9def-0123-456789abcdef turn completed...
-│ ● SYMPHONY-102   running        5252     6m 52s / 4       89,200 2afd1234-5678-9abc-def0-1234a017ef   mix test --cover 
+│ ● SYMPHONY-102   running        5252     6m 52s / 4       89,200 2afd1234-5678-9abc-def0-12345a017eff mix test --cover 
 │
 ├─ Backoff queue
 │
