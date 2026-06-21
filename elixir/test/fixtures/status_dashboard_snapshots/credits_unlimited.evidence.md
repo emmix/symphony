@@ -9,9 +9,9 @@
 │ Next refresh: n/a
 ├─ Running
 │
-│   ID             STAGE          PID      AGE / TURN   TOKENS     SESSION                      EVENT                    
+│   ID             STAGE          PID      AGE / TURN   TOKENS     SESSION                              EVENT            
 │   ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-│ ● SYMPHONY-777   running        4242     1m 15s / 7        3,200 thread-1234567890            thread token usage upd...
+│ ● SYMPHONY-777   running        4242     1m 15s / 7        3,200 abcd1234-5678-9def-0123-456789abcdef thread token u...
 │
 ├─ Backoff queue
 │
