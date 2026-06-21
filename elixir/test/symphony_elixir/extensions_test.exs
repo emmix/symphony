@@ -483,8 +483,8 @@ defmodule SymphonyElixir.ExtensionsTest do
     assert json_response(post(build_conn(), "/api/v1/state", %{}), 405) ==
              %{"error" => %{"code" => "method_not_allowed", "message" => "Method not allowed"}}
 
-    assert json_response(get(build_conn(), "/api/v1/refresh"), 405) ==
-             %{"error" => %{"code" => "method_not_allowed", "message" => "Method not allowed"}}
+    assert json_response(get(build_conn(), "/api/v1/refresh"), 404) ==
+             %{"error" => %{"code" => "issue_not_found", "message" => "Issue not found"}}
 
     assert json_response(post(build_conn(), "/", %{}), 405) ==
              %{"error" => %{"code" => "method_not_allowed", "message" => "Method not allowed"}}

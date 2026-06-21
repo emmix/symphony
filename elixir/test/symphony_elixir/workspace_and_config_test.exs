@@ -85,7 +85,10 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
       assert File.read!(Path.join(second_workspace, "README.md")) == "changed\n"
       assert File.read!(Path.join(second_workspace, "local-progress.txt")) == "in progress\n"
       assert File.read!(Path.join([second_workspace, "deps", "cache.txt"])) == "cached deps\n"
-      assert File.read!(Path.join([second_workspace, "_build", "artifact.txt"])) == "compiled artifact\n"
+
+      assert File.read!(Path.join([second_workspace, "_build", "artifact.txt"])) ==
+               "compiled artifact\n"
+
       assert File.read!(Path.join([second_workspace, "tmp", "scratch.txt"])) == "remove me\n"
     after
       File.rm_rf(workspace_root)
@@ -134,7 +137,9 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
       write_workflow_file!(Workflow.workflow_file_path(), workspace_root: workspace_root)
 
       assert {:ok, canonical_outside_root} = SymphonyElixir.PathSafety.canonicalize(outside_root)
-      assert {:ok, canonical_workspace_root} = SymphonyElixir.PathSafety.canonicalize(workspace_root)
+
+      assert {:ok, canonical_workspace_root} =
+               SymphonyElixir.PathSafety.canonicalize(workspace_root)
 
       assert {:error, {:workspace_outside_root, ^canonical_outside_root, ^canonical_workspace_root}} =
                Workspace.create_for_issue("MT-SYM")
@@ -262,7 +267,9 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
 
     try do
       target_workspace = Path.join(workspace_root, "S_1")
-      untouched_workspace = Path.join(workspace_root, "OTHER-#{System.unique_integer([:positive])}")
+
+      untouched_workspace =
+        Path.join(workspace_root, "OTHER-#{System.unique_integer([:positive])}")
 
       File.mkdir_p!(target_workspace)
       File.mkdir_p!(untouched_workspace)
@@ -436,6 +443,7 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
     assert Enum.map(issues, & &1.id) == issue_ids
 
     assert_receive {:fetch_issue_states_page, query, %{ids: ^first_batch_ids, first: 50, relationFirst: 50}}
+
     assert query =~ "SymphonyLinearIssuesById"
 
     assert_receive {:fetch_issue_states_page, ^query, %{ids: ^second_batch_ids, first: 5, relationFirst: 50}}
@@ -572,7 +580,11 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
     }
 
     refute Orchestrator.should_dispatch_issue_for_test(issue, state)
-    assert Orchestrator.should_dispatch_issue_for_test(%{issue | labels: ["Symphony", "JavaScript"]}, state)
+
+    assert Orchestrator.should_dispatch_issue_for_test(
+             %{issue | labels: ["Symphony", "JavaScript"]},
+             state
+           )
   end
 
   test "todo issue with terminal blockers remains dispatch-eligible" do
@@ -618,7 +630,10 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
              Orchestrator.revalidate_issue_for_dispatch_for_test(stale_issue, fetcher)
 
     assert skipped_issue.identifier == "MT-1005"
-    assert skipped_issue.blocked_by == [%{id: "blocker-3", identifier: "MT-1006", state: "In Progress"}]
+
+    assert skipped_issue.blocked_by == [
+             %{id: "blocker-3", identifier: "MT-1006", state: "In Progress"}
+           ]
   end
 
   test "dispatch revalidation skips an issue after a required label is removed" do
@@ -1270,7 +1285,10 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
 
       read_only_settings = %{
         settings
-        | codex: %{settings.codex | turn_sandbox_policy: %{"type" => "readOnly", "networkAccess" => true}}
+        | codex: %{
+            settings.codex
+            | turn_sandbox_policy: %{"type" => "readOnly", "networkAccess" => true}
+          }
       }
 
       assert {:ok, %{"type" => "readOnly", "networkAccess" => true}} =
@@ -1278,7 +1296,10 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
 
       future_settings = %{
         settings
-        | codex: %{settings.codex | turn_sandbox_policy: %{"type" => "futureSandbox", "nested" => %{"flag" => true}}}
+        | codex: %{
+            settings.codex
+            | turn_sandbox_policy: %{"type" => "futureSandbox", "nested" => %{"flag" => true}}
+          }
       }
 
       assert {:ok, %{"type" => "futureSandbox", "nested" => %{"flag" => true}}} =
@@ -1299,7 +1320,11 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
   end
 
   test "parses claude config with defaults" do
-    config = %{"tracker" => %{"kind" => "linear", "api_key" => "k", "project_slug" => "p"}, "claude" => %{}}
+    config = %{
+      "tracker" => %{"kind" => "linear", "api_key" => "k", "project_slug" => "p"},
+      "claude" => %{}
+    }
+
     assert {:ok, settings} = Schema.parse(config)
     assert settings.claude.command == "claude"
     assert settings.claude.model == nil
@@ -1312,8 +1337,13 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
     config = %{
       "tracker" => %{"kind" => "linear", "api_key" => "k", "project_slug" => "p"},
       "agent_type" => "claude",
-      "claude" => %{"command" => "/usr/local/bin/claude", "model" => "claude-sonnet-4-6", "turn_timeout_ms" => 1_800_000}
+      "claude" => %{
+        "command" => "/usr/local/bin/claude",
+        "model" => "claude-sonnet-4-6",
+        "turn_timeout_ms" => 1_800_000
+      }
     }
+
     assert {:ok, settings} = Schema.parse(config)
     assert settings.agent_type == "claude"
     assert settings.claude.command == "/usr/local/bin/claude"
@@ -1322,7 +1352,11 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
   end
 
   test "rejects invalid claude config" do
-    config = %{"tracker" => %{"kind" => "linear", "api_key" => "k", "project_slug" => "p"}, "claude" => %{"turn_timeout_ms" => 0}}
+    config = %{
+      "tracker" => %{"kind" => "linear", "api_key" => "k", "project_slug" => "p"},
+      "claude" => %{"turn_timeout_ms" => 0}
+    }
+
     assert {:error, {:invalid_workflow_config, _}} = Schema.parse(config)
   end
 

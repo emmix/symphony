@@ -52,7 +52,9 @@ defmodule SymphonyElixir.Config.Schema do
       field(:assignee, :string)
       field(:required_labels, {:array, :string}, default: [])
       field(:active_states, {:array, :string}, default: ["Todo", "In Progress"])
+
       field(:terminal_states, {:array, :string}, default: ["Closed", "Cancelled", "Canceled", "Duplicate", "Done"])
+
       field(:request_timeout_ms, :integer, default: 60_000)
       field(:host, :string)
       field(:workspace_slug, :string)
@@ -64,7 +66,20 @@ defmodule SymphonyElixir.Config.Schema do
       schema
       |> cast(
         attrs,
-        [:kind, :endpoint, :api_key, :project_slug, :assignee, :required_labels, :active_states, :terminal_states, :request_timeout_ms, :host, :workspace_slug, :project_id],
+        [
+          :kind,
+          :endpoint,
+          :api_key,
+          :project_slug,
+          :assignee,
+          :required_labels,
+          :active_states,
+          :terminal_states,
+          :request_timeout_ms,
+          :host,
+          :workspace_slug,
+          :project_id
+        ],
         empty_values: []
       )
       |> update_change(:required_labels, fn labels ->
@@ -150,7 +165,12 @@ defmodule SymphonyElixir.Config.Schema do
       schema
       |> cast(
         attrs,
-        [:max_concurrent_agents, :max_turns, :max_retry_backoff_ms, :max_concurrent_agents_by_state],
+        [
+          :max_concurrent_agents,
+          :max_turns,
+          :max_retry_backoff_ms,
+          :max_concurrent_agents_by_state
+        ],
         empty_values: []
       )
       |> validate_number(:max_concurrent_agents, greater_than: 0)
@@ -227,9 +247,7 @@ defmodule SymphonyElixir.Config.Schema do
     @spec changeset(%__MODULE__{}, map()) :: Ecto.Changeset.t()
     def changeset(schema, attrs) do
       schema
-      |> cast(attrs, [:command, :model, :session_id, :turn_timeout_ms, :stall_timeout_ms],
-        empty_values: []
-      )
+      |> cast(attrs, [:command, :model, :session_id, :turn_timeout_ms, :stall_timeout_ms], empty_values: [])
       |> validate_required([:command])
       |> validate_number(:turn_timeout_ms, greater_than: 0)
       |> validate_number(:stall_timeout_ms, greater_than_or_equal_to: 0)
@@ -422,7 +440,11 @@ defmodule SymphonyElixir.Config.Schema do
 
     workspace = %{
       settings.workspace
-      | root: resolve_path_value(settings.workspace.root, Path.join(System.tmp_dir!(), "symphony_workspaces"))
+      | root:
+          resolve_path_value(
+            settings.workspace.root,
+            Path.join(System.tmp_dir!(), "symphony_workspaces")
+          )
     }
 
     codex = %{
@@ -451,7 +473,9 @@ defmodule SymphonyElixir.Config.Schema do
   defp normalize_optional_map(nil), do: nil
   defp normalize_optional_map(value) when is_map(value), do: normalize_keys(value)
 
-  defp normalize_key(value) when is_atom(value), do: Atom.to_string(value) |> String.replace("-", "_")
+  defp normalize_key(value) when is_atom(value),
+    do: Atom.to_string(value) |> String.replace("-", "_")
+
   defp normalize_key(value), do: to_string(value) |> String.replace("-", "_")
 
   defp drop_nil_values(value) when is_map(value) do
