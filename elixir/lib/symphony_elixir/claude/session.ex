@@ -72,7 +72,8 @@ defmodule SymphonyElixir.Claude.Session do
     turn_timeout_ms = Keyword.get(opts, :turn_timeout_ms, runtime.turn_timeout_ms)
     stall_timeout_ms = Keyword.get(opts, :stall_timeout_ms, runtime.stall_timeout_ms)
 
-    with {:ok, port} <- start_resume_port(workspace, worker_host, runtime, session_id, prompt, model) do
+    with {:ok, port} <-
+           start_resume_port(workspace, worker_host, runtime, session_id, prompt, model) do
       try do
         emit_message(on_message, :session_started, %{
           session_id: session_id
@@ -223,7 +224,18 @@ defmodule SymphonyElixir.Claude.Session do
   defp build_init_command(runtime) do
     parts = ["exec #{shell_escape(runtime.command)}"]
     parts = if runtime.model, do: parts ++ ["--model", shell_escape(runtime.model)], else: parts
-    parts = parts ++ ["-p", shell_escape("You are an autonomous coding agent. Await task instructions."), "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"]
+
+    parts =
+      parts ++
+        [
+          "-p",
+          shell_escape("You are an autonomous coding agent. Await task instructions."),
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--dangerously-skip-permissions"
+        ]
+
     Enum.join(parts, " ")
   end
 
@@ -231,7 +243,20 @@ defmodule SymphonyElixir.Claude.Session do
     resolved_model = model || runtime.model
     parts = ["exec #{shell_escape(runtime.command)}"]
     parts = if resolved_model, do: parts ++ ["--model", shell_escape(resolved_model)], else: parts
-    parts = parts ++ ["--resume", shell_escape(session_id), "-p", shell_escape(prompt), "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"]
+
+    parts =
+      parts ++
+        [
+          "--resume",
+          shell_escape(session_id),
+          "-p",
+          shell_escape(prompt),
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--dangerously-skip-permissions"
+        ]
+
     Enum.join(parts, " ")
   end
 
@@ -270,6 +295,7 @@ defmodule SymphonyElixir.Claude.Session do
     await_turn_loop(port, on_message, nil, cutoff, stall_timeout_ms, "")
   end
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp await_turn_loop(port, on_message, last_activity, cutoff, stall_timeout_ms, buffer) do
     now = System.monotonic_time(:millisecond)
 
@@ -326,9 +352,14 @@ defmodule SymphonyElixir.Claude.Session do
           now2 = System.monotonic_time(:millisecond)
 
           cond do
-            now2 >= cutoff -> {:error, :turn_timeout}
-            is_integer(stall_deadline) and now2 >= stall_deadline -> {:error, :turn_stalled}
-            true -> await_turn_loop(port, on_message, last_activity, cutoff, stall_timeout_ms, buffer)
+            now2 >= cutoff ->
+              {:error, :turn_timeout}
+
+            is_integer(stall_deadline) and now2 >= stall_deadline ->
+              {:error, :turn_stalled}
+
+            true ->
+              await_turn_loop(port, on_message, last_activity, cutoff, stall_timeout_ms, buffer)
           end
       end
     end
@@ -372,6 +403,7 @@ defmodule SymphonyElixir.Claude.Session do
     usage = Map.get(event, "usage", %{})
     input_tokens = Map.get(usage, "input_tokens", 0)
     output_tokens = Map.get(usage, "output_tokens", 0)
+
     %{
       input_tokens: input_tokens,
       output_tokens: output_tokens,

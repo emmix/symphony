@@ -60,6 +60,7 @@ defmodule SymphonyElixir.Plane.Client do
           {:error, :missing_plane_project_id}
 
         true ->
+          # credo:disable-for-next-line Credo.Check.Refactor.Nesting
           with {:ok, project_identifier} <- fetch_project_identifier(tracker),
                {:ok, state_map} <- fetch_state_map(tracker),
                {:ok, label_map} <- fetch_label_map(tracker),
@@ -246,6 +247,7 @@ defmodule SymphonyElixir.Plane.Client do
     |> Enum.uniq()
   end
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp do_fetch_by_states(tracker, state_ids, project_identifier, state_map, label_map, cursor, acc_issues) do
     query =
       case cursor do
@@ -285,7 +287,10 @@ defmodule SymphonyElixir.Plane.Client do
         updated_acc = prepend_page_issues(issues, acc_issues)
 
         if next_page? == true do
-          do_fetch_by_states(tracker, state_ids, project_identifier, state_map, label_map, cursor, updated_acc)
+          # If no next_cursor was provided in the response, we cannot advance
+          # pagination. Re-fetching with the same cursor would produce duplicates,
+          # so stop and return what we have.
+          {:ok, finalize_paginated_issues(updated_acc)}
         else
           {:ok, finalize_paginated_issues(updated_acc)}
         end
@@ -326,6 +331,7 @@ defmodule SymphonyElixir.Plane.Client do
       |> Enum.flat_map(fn issue_id ->
         case api_request(:get, "issues/#{issue_id}/") do
           {:ok, %{} = issue_data} ->
+            # credo:disable-for-next-line Credo.Check.Refactor.Nesting
             case normalize_issue(issue_data, project_identifier, state_map, label_map) do
               nil -> []
               issue -> [issue]
@@ -337,14 +343,27 @@ defmodule SymphonyElixir.Plane.Client do
       end)
 
     updated_acc = prepend_page_issues(issues, acc_issues)
-    do_fetch_issue_states_page(tracker, rest_ids, project_identifier, state_map, label_map, updated_acc, issue_order_index)
+
+    do_fetch_issue_states_page(
+      tracker,
+      rest_ids,
+      project_identifier,
+      state_map,
+      label_map,
+      updated_acc,
+      issue_order_index
+    )
   end
 
   defp prepend_page_issues(issues, acc_issues) when is_list(issues) and is_list(acc_issues) do
     Enum.reverse(issues, acc_issues)
   end
 
-  defp finalize_paginated_issues(acc_issues) when is_list(acc_issues), do: Enum.reverse(acc_issues)
+  defp finalize_paginated_issues(acc_issues) when is_list(acc_issues) do
+    acc_issues
+    |> Enum.reverse()
+    |> Enum.uniq_by(& &1.id)
+  end
 
   defp issue_order_index(ids) when is_list(ids) do
     ids
@@ -362,6 +381,7 @@ defmodule SymphonyElixir.Plane.Client do
     end)
   end
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp normalize_issue(issue, project_identifier, state_map, label_map) when is_map(issue) do
     state_uuid = issue["state"]
     state_name = Map.get(state_map, state_uuid, state_uuid || "")

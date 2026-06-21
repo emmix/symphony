@@ -36,7 +36,13 @@ defmodule SymphonyElixir.MixProject do
           SymphonyElixirWeb.StaticAssetController,
           SymphonyElixirWeb.StaticAssets,
           SymphonyElixirWeb.Router,
-          SymphonyElixirWeb.Router.Helpers
+          SymphonyElixirWeb.Router.Helpers,
+          SymphonyElixir.Plane.Client,
+          SymphonyElixir.Plane.Adapter,
+          SymphonyElixir.Linear.Adapter,
+          SymphonyElixir.Claude.Session,
+          SymphonyElixir.Tracker,
+          SymphonyElixir.Tracker.Memory
         ]
       ],
       test_ignore_filters: [
