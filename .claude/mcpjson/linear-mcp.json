@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "linear-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "linear-mcp-server"
+      ]
+    }
+  }
+}
