@@ -201,6 +201,7 @@ defmodule SymphonyElixir.StatusDashboard do
 
   def terminate(_reason, _state), do: :ok
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp refresh_runtime_config(%__MODULE__{} = state) do
     observability = Config.settings!().observability
 
@@ -442,6 +443,7 @@ defmodule SymphonyElixir.StatusDashboard do
     end
   end
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp format_project_link_lines do
     tracker = Config.settings!().tracker
 

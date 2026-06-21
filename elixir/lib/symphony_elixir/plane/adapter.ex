@@ -103,6 +103,7 @@ defmodule SymphonyElixir.Plane.Adapter do
       {:ok, %{"results" => results}} when is_list(results) ->
         normalized = String.downcase(String.trim(state_name))
 
+        # credo:disable-for-next-line Credo.Check.Refactor.Nesting
         case Enum.find(results, fn state ->
                is_map(state) and String.downcase(String.trim(state["name"] || "")) == normalized
              end) do

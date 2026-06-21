@@ -141,8 +141,7 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
       assert {:ok, canonical_workspace_root} =
                SymphonyElixir.PathSafety.canonicalize(workspace_root)
 
-      assert {:error,
-              {:workspace_outside_root, ^canonical_outside_root, ^canonical_workspace_root}} =
+      assert {:error, {:workspace_outside_root, ^canonical_outside_root, ^canonical_workspace_root}} =
                Workspace.create_for_issue("MT-SYM")
     after
       File.rm_rf(test_root)
@@ -190,8 +189,7 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
       assert {:ok, canonical_workspace_root} =
                SymphonyElixir.PathSafety.canonicalize(workspace_root)
 
-      assert {:error,
-              {:workspace_equals_root, ^canonical_workspace_root, ^canonical_workspace_root}, ""} =
+      assert {:error, {:workspace_equals_root, ^canonical_workspace_root, ^canonical_workspace_root}, ""} =
                Workspace.remove(workspace_root)
     after
       File.rm_rf(workspace_root)
@@ -444,13 +442,11 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
 
     assert Enum.map(issues, & &1.id) == issue_ids
 
-    assert_receive {:fetch_issue_states_page, query,
-                    %{ids: ^first_batch_ids, first: 50, relationFirst: 50}}
+    assert_receive {:fetch_issue_states_page, query, %{ids: ^first_batch_ids, first: 50, relationFirst: 50}}
 
     assert query =~ "SymphonyLinearIssuesById"
 
-    assert_receive {:fetch_issue_states_page, ^query,
-                    %{ids: ^second_batch_ids, first: 5, relationFirst: 50}}
+    assert_receive {:fetch_issue_states_page, ^query, %{ids: ^second_batch_ids, first: 5, relationFirst: 50}}
   end
 
   test "linear client logs response bodies for non-200 graphql responses" do
@@ -684,8 +680,7 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
 
       write_workflow_file!(Workflow.workflow_file_path(),
         workspace_root: workspace_root,
-        hook_after_create:
-          "echo after_create > after_create.log\necho call >> \"#{after_create_counter}\"",
+        hook_after_create: "echo after_create > after_create.log\necho call >> \"#{after_create_counter}\"",
         hook_before_remove: "echo before_remove > \"#{before_remove_marker}\""
       )
 
@@ -833,9 +828,7 @@ defmodule SymphonyElixir.WorkspaceAndConfigTest do
     assert config.codex.thread_sandbox == "workspace-write"
 
     assert {:ok, canonical_default_workspace_root} =
-             SymphonyElixir.PathSafety.canonicalize(
-               Path.join(System.tmp_dir!(), "symphony_workspaces")
-             )
+             SymphonyElixir.PathSafety.canonicalize(Path.join(System.tmp_dir!(), "symphony_workspaces"))
 
     assert Config.codex_turn_sandbox_policy() == %{
              "type" => "workspaceWrite",

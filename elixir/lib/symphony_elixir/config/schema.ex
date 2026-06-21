@@ -53,9 +53,7 @@ defmodule SymphonyElixir.Config.Schema do
       field(:required_labels, {:array, :string}, default: [])
       field(:active_states, {:array, :string}, default: ["Todo", "In Progress"])
 
-      field(:terminal_states, {:array, :string},
-        default: ["Closed", "Cancelled", "Canceled", "Duplicate", "Done"]
-      )
+      field(:terminal_states, {:array, :string}, default: ["Closed", "Cancelled", "Canceled", "Duplicate", "Done"])
 
       field(:request_timeout_ms, :integer, default: 60_000)
       field(:host, :string)
@@ -249,9 +247,7 @@ defmodule SymphonyElixir.Config.Schema do
     @spec changeset(%__MODULE__{}, map()) :: Ecto.Changeset.t()
     def changeset(schema, attrs) do
       schema
-      |> cast(attrs, [:command, :model, :session_id, :turn_timeout_ms, :stall_timeout_ms],
-        empty_values: []
-      )
+      |> cast(attrs, [:command, :model, :session_id, :turn_timeout_ms, :stall_timeout_ms], empty_values: [])
       |> validate_required([:command])
       |> validate_number(:turn_timeout_ms, greater_than: 0)
       |> validate_number(:stall_timeout_ms, greater_than_or_equal_to: 0)
@@ -275,9 +271,7 @@ defmodule SymphonyElixir.Config.Schema do
     @spec changeset(%__MODULE__{}, map()) :: Ecto.Changeset.t()
     def changeset(schema, attrs) do
       schema
-      |> cast(attrs, [:after_create, :before_run, :after_run, :before_remove, :timeout_ms],
-        empty_values: []
-      )
+      |> cast(attrs, [:after_create, :before_run, :after_run, :before_remove, :timeout_ms], empty_values: [])
       |> validate_number(:timeout_ms, greater_than: 0)
     end
   end
@@ -438,8 +432,7 @@ defmodule SymphonyElixir.Config.Schema do
     tracker = %{
       settings.tracker
       | api_key: resolve_secret_setting(settings.tracker.api_key, api_key_fallback),
-        assignee:
-          resolve_secret_setting(settings.tracker.assignee, System.get_env("LINEAR_ASSIGNEE")),
+        assignee: resolve_secret_setting(settings.tracker.assignee, System.get_env("LINEAR_ASSIGNEE")),
         host: resolve_env_value(settings.tracker.host, nil),
         workspace_slug: resolve_env_value(settings.tracker.workspace_slug, nil),
         project_id: resolve_env_value(settings.tracker.project_id, nil)

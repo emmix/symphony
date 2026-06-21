@@ -139,8 +139,7 @@ defmodule SymphonyElixir.Claude.Session do
           {:error, {:invalid_workspace_cwd, :symlink_escape, expanded_workspace, canonical_root}}
 
         true ->
-          {:error,
-           {:invalid_workspace_cwd, :outside_workspace_root, canonical_workspace, canonical_root}}
+          {:error, {:invalid_workspace_cwd, :outside_workspace_root, canonical_workspace, canonical_root}}
       end
     else
       {:error, {:path_canonicalize_failed, path, reason}} ->
@@ -296,6 +295,7 @@ defmodule SymphonyElixir.Claude.Session do
     await_turn_loop(port, on_message, nil, cutoff, stall_timeout_ms, "")
   end
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp await_turn_loop(port, on_message, last_activity, cutoff, stall_timeout_ms, buffer) do
     now = System.monotonic_time(:millisecond)
 
