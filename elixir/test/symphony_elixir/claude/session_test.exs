@@ -7,7 +7,9 @@ defmodule SymphonyElixir.Claude.SessionTest do
 
   describe "start_session/2" do
     test "returns session struct with session_id from system/init event" do
-      script_dir = Path.join(System.tmp_dir!(), "claude-fake-#{System.unique_integer([:positive])}")
+      script_dir =
+        Path.join(System.tmp_dir!(), "claude-fake-#{System.unique_integer([:positive])}")
+
       File.mkdir_p!(script_dir)
 
       fake_claude = Path.join(script_dir, "claude")
@@ -48,7 +50,10 @@ defmodule SymphonyElixir.Claude.SessionTest do
       File.chmod!(fake_claude, 0o755)
 
       try do
-        write_workflow_file!(Workflow.workflow_file_path(), agent_type: "claude", claude_command: fake_claude)
+        write_workflow_file!(Workflow.workflow_file_path(),
+          agent_type: "claude",
+          claude_command: fake_claude
+        )
 
         workspace = Path.join(Config.settings!().workspace.root, "test-workspace")
         File.mkdir_p!(workspace)
@@ -62,7 +67,9 @@ defmodule SymphonyElixir.Claude.SessionTest do
     end
 
     test "returns error on CLI failure" do
-      script_dir = Path.join(System.tmp_dir!(), "claude-fake-#{System.unique_integer([:positive])}")
+      script_dir =
+        Path.join(System.tmp_dir!(), "claude-fake-#{System.unique_integer([:positive])}")
+
       File.mkdir_p!(script_dir)
 
       fake_claude = Path.join(script_dir, "claude")
@@ -76,7 +83,10 @@ defmodule SymphonyElixir.Claude.SessionTest do
       File.chmod!(fake_claude, 0o755)
 
       try do
-        write_workflow_file!(Workflow.workflow_file_path(), agent_type: "claude", claude_command: fake_claude)
+        write_workflow_file!(Workflow.workflow_file_path(),
+          agent_type: "claude",
+          claude_command: fake_claude
+        )
 
         workspace = Path.join(Config.settings!().workspace.root, "test-workspace")
         File.mkdir_p!(workspace)
@@ -90,7 +100,9 @@ defmodule SymphonyElixir.Claude.SessionTest do
 
   describe "run_turn/4" do
     test "sends prompt and returns result on success" do
-      script_dir = Path.join(System.tmp_dir!(), "claude-fake-#{System.unique_integer([:positive])}")
+      script_dir =
+        Path.join(System.tmp_dir!(), "claude-fake-#{System.unique_integer([:positive])}")
+
       File.mkdir_p!(script_dir)
 
       fake_claude = Path.join(script_dir, "claude")
@@ -107,7 +119,7 @@ defmodule SymphonyElixir.Claude.SessionTest do
           type: "result",
           subtype: "success",
           usage: %{input_tokens: 200, output_tokens: 100, total_tokens: 300},
-          duration_ms: 10_000,
+          duration_ms: 10000,
           cost_usd: 0.02
         })
 
@@ -161,7 +173,9 @@ defmodule SymphonyElixir.Claude.SessionTest do
     end
 
     test "returns error on timeout" do
-      script_dir = Path.join(System.tmp_dir!(), "claude-fake-#{System.unique_integer([:positive])}")
+      script_dir =
+        Path.join(System.tmp_dir!(), "claude-fake-#{System.unique_integer([:positive])}")
+
       File.mkdir_p!(script_dir)
 
       fake_claude = Path.join(script_dir, "claude")
@@ -200,7 +214,9 @@ defmodule SymphonyElixir.Claude.SessionTest do
     end
 
     test "returns max_turns error on result/error_max_turns" do
-      script_dir = Path.join(System.tmp_dir!(), "claude-fake-#{System.unique_integer([:positive])}")
+      script_dir =
+        Path.join(System.tmp_dir!(), "claude-fake-#{System.unique_integer([:positive])}")
+
       File.mkdir_p!(script_dir)
 
       fake_claude = Path.join(script_dir, "claude")
@@ -253,7 +269,15 @@ defmodule SymphonyElixir.Claude.SessionTest do
 
   describe "stop_session/1" do
     test "cleans up port" do
-      session = %{port: nil, metadata: %{}, session_id: "test", workspace: "/tmp/ws", worker_host: nil, model: nil}
+      session = %{
+        port: nil,
+        metadata: %{},
+        session_id: "test",
+        workspace: "/tmp/ws",
+        worker_host: nil,
+        model: nil
+      }
+
       assert :ok = Session.stop_session(session)
     end
   end
