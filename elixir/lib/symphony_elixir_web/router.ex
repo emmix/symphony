@@ -1,5 +1,5 @@
 defmodule SymphonyElixirWeb.Router do
-  @moduledoc """
+  @moduledog """
   Router for Symphony's observability dashboard and API.
   """
 
@@ -26,17 +26,20 @@ defmodule SymphonyElixirWeb.Router do
     pipe_through(:browser)
 
     live("/", DashboardLive, :index)
+    match(:*, "/", ObservabilityApiController, :method_not_allowed)
   end
 
   scope "/", SymphonyElixirWeb do
     get("/api/v1/state", ObservabilityApiController, :state)
     post("/api/v1/refresh", ObservabilityApiController, :refresh)
+
+    match(:*, "/api/v1/state", ObservabilityApiController, :method_not_allowed)
+    match(:*, "/api/v1/refresh", ObservabilityApiController, :method_not_allowed)
+
     delete("/api/v1/:issue_identifier", ObservabilityApiController, :stop)
     post("/api/v1/:issue_identifier/unblock", ObservabilityApiController, :unblock)
     get("/api/v1/:issue_identifier", ObservabilityApiController, :issue)
 
-    match(:*, "/api/v1/state", ObservabilityApiController, :method_not_allowed)
-    match(:*, "/api/v1/refresh", ObservabilityApiController, :method_not_allowed)
     match(:*, "/api/v1/:issue_identifier", ObservabilityApiController, :method_not_allowed)
     match(:*, "/api/v1/:issue_identifier/unblock", ObservabilityApiController, :method_not_allowed)
     match(:*, "/*path", ObservabilityApiController, :not_found)
