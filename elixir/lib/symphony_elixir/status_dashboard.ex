@@ -38,6 +38,10 @@ defmodule SymphonyElixir.StatusDashboard do
   @ansi_magenta IO.ANSI.magenta()
   @ansi_gray IO.ANSI.light_black()
 
+  @alternate_screen_enter "\e[?1049h"
+  @alternate_screen_leave "\e[?1049l"
+  @clear_scrollback "\e[3J"
+
   defstruct [
     :refresh_ms,
     :enabled,
@@ -53,7 +57,8 @@ defmodule SymphonyElixir.StatusDashboard do
     :last_rendered_at_ms,
     :pending_content,
     :flush_timer_ref,
-    :last_snapshot_fingerprint
+    :last_snapshot_fingerprint,
+    :alternate_screen_active
   ]
 
   @type t :: %__MODULE__{
@@ -71,7 +76,8 @@ defmodule SymphonyElixir.StatusDashboard do
           last_rendered_at_ms: integer() | nil,
           pending_content: String.t() | nil,
           flush_timer_ref: reference() | nil,
-          last_snapshot_fingerprint: term() | nil
+          last_snapshot_fingerprint: term() | nil,
+          alternate_screen_active: boolean()
         }
 
   @spec start_link(keyword()) :: GenServer.on_start()
@@ -106,6 +112,11 @@ defmodule SymphonyElixir.StatusDashboard do
     enabled = resolve_override(enabled_override, observability.dashboard_enabled and dashboard_enabled?())
     schedule_tick(refresh_ms, enabled)
 
+    uses_default_renderer = render_fun == &render_to_terminal/1
+    alternate_active = enabled and uses_default_renderer
+
+    if alternate_active, do: enter_alternate_screen()
+
     {:ok,
      %__MODULE__{
        refresh_ms: refresh_ms,
@@ -122,9 +133,17 @@ defmodule SymphonyElixir.StatusDashboard do
        last_rendered_at_ms: nil,
        pending_content: nil,
        flush_timer_ref: nil,
-       last_snapshot_fingerprint: nil
+       last_snapshot_fingerprint: nil,
+       alternate_screen_active: alternate_active
      }}
   end
+
+  @impl true
+  def terminate(_reason, %{alternate_screen_active: true}) do
+    leave_alternate_screen()
+  end
+
+  def terminate(_reason, _state), do: :ok
 
   @spec render_offline_status() :: :ok
   def render_offline_status do
@@ -178,10 +197,25 @@ defmodule SymphonyElixir.StatusDashboard do
 
   defp refresh_runtime_config(%__MODULE__{} = state) do
     observability = Config.settings!().observability
+    new_enabled = resolve_override(state.enabled_override, observability.dashboard_enabled and dashboard_enabled?())
+
+    state =
+      cond do
+        new_enabled and not state.enabled and not state.alternate_screen_active ->
+          enter_alternate_screen()
+          %{state | alternate_screen_active: true}
+
+        not new_enabled and state.alternate_screen_active ->
+          leave_alternate_screen()
+          %{state | alternate_screen_active: false}
+
+        true ->
+          state
+      end
 
     %{
       state
-      | enabled: resolve_override(state.enabled_override, observability.dashboard_enabled and dashboard_enabled?()),
+      | enabled: new_enabled,
         refresh_ms: state.refresh_ms_override || observability.refresh_ms,
         render_interval_ms: state.render_interval_ms_override || observability.render_interval_ms
     }
@@ -467,11 +501,20 @@ defmodule SymphonyElixir.StatusDashboard do
 
   defp render_to_terminal(content) do
     IO.write([
-      IO.ANSI.home(),
       IO.ANSI.clear(),
+      @clear_scrollback,
+      IO.ANSI.home(),
       normalize_status_lines(content),
       "\n"
     ])
+  end
+
+  defp enter_alternate_screen do
+    IO.write([@alternate_screen_enter, IO.ANSI.clear(), IO.ANSI.home()])
+  end
+
+  defp leave_alternate_screen do
+    IO.write([IO.ANSI.clear(), IO.ANSI.home(), @alternate_screen_leave])
   end
 
   defp update_token_samples(samples, now_ms, total_tokens) do

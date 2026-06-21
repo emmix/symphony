@@ -269,7 +269,11 @@ defmodule SymphonyElixir.Linear.Client do
     Enum.reverse(issues, acc_issues)
   end
 
-  defp finalize_paginated_issues(acc_issues) when is_list(acc_issues), do: Enum.reverse(acc_issues)
+  defp finalize_paginated_issues(acc_issues) when is_list(acc_issues) do
+    acc_issues
+    |> Enum.reverse()
+    |> Enum.uniq_by(& &1.id)
+  end
 
   defp do_fetch_issue_states(ids, assignee_filter) do
     do_fetch_issue_states(ids, assignee_filter, &graphql/2)
