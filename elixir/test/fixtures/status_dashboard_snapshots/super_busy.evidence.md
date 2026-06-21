@@ -9,10 +9,10 @@
 │ Next refresh: n/a
 ├─ Running
 │
-│   ID             STAGE          PID      AGE / TURN   TOKENS     SESSION        EVENT                                  
+│   ID             STAGE          PID      AGE / TURN   TOKENS     SESSION                      EVENT                    
 │   ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-│ ● SYMPHONY-101   running        4242     13m 5s / 11     120,450 thre...567890  turn completed (completed)             
-│ ● SYMPHONY-102   running        5252     6m 52s / 4       89,200 thre...567890  mix test --cover                       
+│ ● SYMPHONY-101   running        4242     13m 5s / 11     120,450 thread-1234567890            turn completed (comple...
+│ ● SYMPHONY-102   running        5252     6m 52s / 4       89,200 thread-abcdef1234567890      mix test --cover         
 │
 ├─ Backoff queue
 │
