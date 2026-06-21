@@ -20,11 +20,11 @@ defmodule SymphonyElixir.StatusDashboard do
   @running_pid_width 8
   @running_age_width 12
   @running_tokens_width 10
-  @running_session_width 28
+  @running_session_width 36
   @running_event_default_width 44
   @running_event_min_width 12
   @running_row_chrome_width 10
-  @default_terminal_columns 121
+  @default_terminal_columns 129
 
   @ansi_reset IO.ANSI.reset()
   @ansi_bold IO.ANSI.bright()
