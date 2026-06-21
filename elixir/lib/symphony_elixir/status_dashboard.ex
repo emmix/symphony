@@ -668,7 +668,7 @@ defmodule SymphonyElixir.StatusDashboard do
     end
   end
 
-  # credo:disable-for-next-line
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp format_running_summary(running_entry, running_event_width) do
     issue = format_cell(running_entry.identifier || "unknown", @running_id_width)
     state = running_entry.state || "unknown"
