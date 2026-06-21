@@ -142,11 +142,14 @@ The agent should be able to talk to Linear, either via a configured Linear MCP s
 ## Step 1: Start/continue execution (Todo or In Progress)
 
 1.  Find or create a single persistent scratchpad comment for the issue:
-    - Search existing comments for a marker header: `## Codex Workpad`.
-    - Ignore resolved comments while searching; only active/unresolved comments are eligible to be reused as the live workpad.
-    - If found, reuse that comment; do not create a new workpad comment.
-    - If not found, create one workpad comment and use it for all updates.
+    - **IMPORTANT: You MUST reuse an existing Codex Workpad comment if one exists. Creating multiple workpad comments for the same issue is a bug.**
+    - Use the tracker API to list comments for the issue.
+    - Search the response for any comment whose content contains `## Codex Workpad` (or `<h2>Codex Workpad</h2>` if the tracker stores HTML).
+    - **If multiple active workpad comments are found (dedup required)**: reuse the most recently updated one and delete all others. This is critical — never leave more than one active workpad comment on an issue.
+    - If exactly one is found, note its `id` and use the update comment API to update it in place. Do NOT create a new comment.
+    - If not found (no comment contains `## Codex Workpad`), create one workpad comment and use it for all updates.
     - Persist the workpad comment ID and only write progress updates to that ID.
+    - **NEVER create a second `## Codex Workpad` comment. If you already created one earlier in this session, find and update it instead.**
 2.  If arriving from `Todo`, do not delay on additional status transitions: the issue should already be `In Progress` before this step begins.
 3.  Immediately reconcile the workpad before new edits:
     - Check off items that are already done.
@@ -280,7 +283,7 @@ Use this only when completion is blocked by missing required tools or missing au
 - For closed/merged branch PRs, create a new branch from `origin/main` and restart from reproduction/planning as if starting fresh.
 - If issue state is `Backlog`, do not modify it; wait for human to move to `Todo`.
 - Do not edit the issue body/description for planning or progress tracking.
-- Use exactly one persistent workpad comment (`## Codex Workpad`) per issue.
+- Use exactly one persistent workpad comment (`## Codex Workpad`) per issue. Before creating a new workpad comment, always list existing comments and check whether one already exists (search for both `## Codex Workpad` and `<h2>Codex Workpad</h2>` in case the tracker stores HTML). Creating duplicate workpad comments is a bug.
 - If comment editing is unavailable in-session, use the update script. Only report blocked if both MCP editing and script-based editing are unavailable.
 - Temporary proof edits are allowed only for local verification and must be reverted before commit.
 - If out-of-scope improvements are found, create a separate Backlog issue rather

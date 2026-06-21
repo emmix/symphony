@@ -37,13 +37,56 @@ defmodule SymphonyElixir.Tracker.Memory do
 
   @spec create_comment(String.t(), String.t()) :: :ok | {:error, term()}
   def create_comment(issue_id, body) do
+    comment_id = generate_id()
+    comment = %{id: comment_id, comment_html: body, created_at: now_iso(), updated_at: now_iso(), resolved: false}
+    existing = get_comments(issue_id)
+    store_all_comments(issue_id, existing ++ [comment])
     send_event({:memory_tracker_comment, issue_id, body})
+    :ok
+  end
+
+  @spec list_comments(String.t()) :: {:ok, [map()]} | {:error, term()}
+  def list_comments(issue_id) do
+    {:ok, get_comments(issue_id)}
+  end
+
+  @spec update_comment(String.t(), String.t(), String.t()) :: :ok | {:error, term()}
+  def update_comment(issue_id, comment_id, body) do
+    comments = get_comments(issue_id)
+
+    case Enum.find_index(comments, fn c -> c.id == comment_id end) do
+      nil ->
+        {:error, :comment_not_found}
+
+      idx ->
+        updated = %{Enum.at(comments, idx) | comment_html: body, updated_at: now_iso()}
+        store_all_comments(issue_id, List.replace_at(comments, idx, updated))
+        send_event({:memory_tracker_comment_update, issue_id, comment_id, body})
+        :ok
+    end
+  end
+
+  @spec delete_comment(String.t(), String.t()) :: :ok | {:error, term()}
+  def delete_comment(issue_id, comment_id) do
+    comments = get_comments(issue_id)
+    filtered = Enum.reject(comments, fn c -> c.id == comment_id end)
+    store_all_comments(issue_id, filtered)
+    send_event({:memory_tracker_comment_delete, issue_id, comment_id})
     :ok
   end
 
   @spec update_issue_state(String.t(), String.t()) :: :ok | {:error, term()}
   def update_issue_state(issue_id, state_name) do
     send_event({:memory_tracker_state_update, issue_id, state_name})
+    :ok
+  end
+
+  @doc """
+  Resets all stored comments. Call in test setup.
+  """
+  @spec reset_comments() :: :ok
+  def reset_comments do
+    Process.delete({__MODULE__, :comments})
     :ok
   end
 
@@ -60,6 +103,24 @@ defmodule SymphonyElixir.Tracker.Memory do
       pid when is_pid(pid) -> send(pid, message)
       _ -> :ok
     end
+  end
+
+  defp get_comments(issue_id) do
+    Process.get({__MODULE__, :comments}, %{})
+    |> Map.get(issue_id, [])
+  end
+
+  defp store_all_comments(issue_id, comments) do
+    all = Process.get({__MODULE__, :comments}, %{})
+    Process.put({__MODULE__, :comments}, Map.put(all, issue_id, comments))
+  end
+
+  defp generate_id do
+    :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
+  end
+
+  defp now_iso do
+    DateTime.utc_now() |> DateTime.to_iso8601()
   end
 
   defp normalize_state(state) when is_binary(state) do

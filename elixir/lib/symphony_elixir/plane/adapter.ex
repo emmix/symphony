@@ -27,6 +27,60 @@ defmodule SymphonyElixir.Plane.Adapter do
     end
   end
 
+  @spec list_comments(String.t()) :: {:ok, [map()]} | {:error, term()}
+  def list_comments(issue_id) when is_binary(issue_id) do
+    case client_module().api_request(:get, "issues/#{issue_id}/comments/") do
+      {:ok, %{"results" => results}} when is_list(results) ->
+        comments =
+          Enum.map(results, fn comment ->
+            %{
+              id: comment["id"],
+              comment_html: comment["comment_html"] || "",
+              created_at: comment["created_at"],
+              updated_at: comment["updated_at"],
+              actor: comment["actor"],
+              resolved: not is_nil(comment["deleted_at"])
+            }
+          end)
+
+        {:ok, comments}
+
+      {:ok, _} ->
+        {:ok, []}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @spec update_comment(String.t(), String.t(), String.t()) :: :ok | {:error, term()}
+  def update_comment(issue_id, comment_id, body)
+      when is_binary(issue_id) and is_binary(comment_id) and is_binary(body) do
+    case client_module().api_request(
+           :patch,
+           "issues/#{issue_id}/comments/#{comment_id}/",
+           %{comment_html: "<p>#{escape_html(body)}</p>"}
+         ) do
+      {:ok, _response} ->
+        :ok
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @spec delete_comment(String.t(), String.t()) :: :ok | {:error, term()}
+  def delete_comment(issue_id, comment_id)
+      when is_binary(issue_id) and is_binary(comment_id) do
+    case client_module().api_request(:delete, "issues/#{issue_id}/comments/#{comment_id}/") do
+      {:ok, _response} ->
+        :ok
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
   @spec update_issue_state(String.t(), String.t()) :: :ok | {:error, term()}
   def update_issue_state(issue_id, state_name)
       when is_binary(issue_id) and is_binary(state_name) do

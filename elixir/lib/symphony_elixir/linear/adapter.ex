@@ -37,6 +37,29 @@ defmodule SymphonyElixir.Linear.Adapter do
   }
   """
 
+  @list_comments_query """
+  query SymphonyListComments($issueId: String!) {
+    issue(id: $issueId) {
+      comments {
+        nodes {
+          id
+          body
+          createdAt
+          updatedAt
+        }
+      }
+    }
+  }
+  """
+
+  @update_comment_mutation """
+  mutation SymphonyUpdateComment($commentId: String!, $body: String!) {
+    commentUpdate(id: $commentId, input: {body: $body}) {
+      success
+    }
+  }
+  """
+
   @spec fetch_candidate_issues() :: {:ok, [term()]} | {:error, term()}
   def fetch_candidate_issues, do: client_module().fetch_candidate_issues()
 
@@ -56,6 +79,47 @@ defmodule SymphonyElixir.Linear.Adapter do
       {:error, reason} -> {:error, reason}
       _ -> {:error, :comment_create_failed}
     end
+  end
+
+  @spec list_comments(String.t()) :: {:ok, [map()]} | {:error, term()}
+  def list_comments(issue_id) when is_binary(issue_id) do
+    with {:ok, response} <- client_module().graphql(@list_comments_query, %{issueId: issue_id}),
+         nodes when is_list(nodes) <- get_in(response, ["data", "issue", "comments", "nodes"]) do
+      comments =
+        Enum.map(nodes, fn node ->
+          %{
+            id: node["id"],
+            comment_html: node["body"] || "",
+            created_at: node["createdAt"],
+            updated_at: node["updatedAt"],
+            resolved: false
+          }
+        end)
+
+      {:ok, comments}
+    else
+      {:error, reason} -> {:error, reason}
+      _ -> {:ok, []}
+    end
+  end
+
+  @spec update_comment(String.t(), String.t(), String.t()) :: :ok | {:error, term()}
+  def update_comment(_issue_id, comment_id, body)
+      when is_binary(comment_id) and is_binary(body) do
+    with {:ok, response} <-
+           client_module().graphql(@update_comment_mutation, %{commentId: comment_id, body: body}),
+         true <- get_in(response, ["data", "commentUpdate", "success"]) == true do
+      :ok
+    else
+      false -> {:error, :comment_update_failed}
+      {:error, reason} -> {:error, reason}
+      _ -> {:error, :comment_update_failed}
+    end
+  end
+
+  @spec delete_comment(String.t(), String.t()) :: :ok | {:error, term()}
+  def delete_comment(_issue_id, _comment_id) do
+    {:error, :not_supported}
   end
 
   @spec update_issue_state(String.t(), String.t()) :: :ok | {:error, term()}
