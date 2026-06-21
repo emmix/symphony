@@ -411,6 +411,8 @@ defmodule SymphonyElixir.Claude.Session do
     end
   end
 
+  # Defensive fallback for non-port values
+  @dialyzer {:no_match, stop_port: 1}
   defp stop_port(_port), do: :ok
 
   defp port_metadata(port, worker_host) when is_port(port) do

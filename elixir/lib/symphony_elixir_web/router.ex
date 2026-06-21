@@ -1,5 +1,5 @@
 defmodule SymphonyElixirWeb.Router do
-  @moduledog """
+  @moduledoc """
   Router for Symphony's observability dashboard and API.
   """
 

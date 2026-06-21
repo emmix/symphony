@@ -121,6 +121,8 @@ defmodule SymphonyElixir.AgentRunner do
     end
   end
 
+  # Defensive fallback for non-port values
+  @dialyzer {:no_match, extract_os_pid: 1}
   defp extract_os_pid(_port), do: nil
 
   defp start_agent_session(workspace, opts) do

@@ -1,6 +1,6 @@
 %{
   configs: [
-     {
+    %{
       name: "default",
       checks: [
         {Credo.Check.Refactor.CyclomaticComplexity, false},
