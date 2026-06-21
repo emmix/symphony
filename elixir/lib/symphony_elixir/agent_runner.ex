@@ -43,7 +43,8 @@ defmodule SymphonyElixir.AgentRunner do
         send_worker_runtime_info(codex_update_recipient, issue, worker_host, workspace)
 
         try do
-          with :ok <- Workspace.run_before_run_hook(workspace, issue, worker_host) do
+          with :ok <- dedup_workpad_comments(issue),
+               :ok <- Workspace.run_before_run_hook(workspace, issue, worker_host) do
             run_codex_turns(workspace, issue, codex_update_recipient, opts, worker_host)
           end
         after
@@ -154,6 +155,8 @@ defmodule SymphonyElixir.AgentRunner do
   end
 
   defp do_run_codex_turns(app_session, workspace, issue, codex_update_recipient, opts, issue_state_fetcher, turn_number, max_turns) do
+    :ok = dedup_workpad_comments(issue)
+
     prompt = build_turn_prompt(issue, opts, turn_number, max_turns)
 
     with {:ok, turn_session} <-
@@ -200,9 +203,10 @@ defmodule SymphonyElixir.AgentRunner do
     """
     Continuation guidance:
 
-    - The previous agent turn completed normally, but the Linear issue is still in an active state.
+    - The previous agent turn completed normally, but the issue is still in an active state.
     - This is continuation turn ##{turn_number} of #{max_turns} for the current agent run.
     - Resume from the current workspace and workpad state instead of restarting from scratch.
+    - IMPORTANT: Find and reuse the existing `## Codex Workpad` comment on the issue. Do NOT create a new workpad comment.
     - The original task instructions and prior turn context are already present in this thread, so do not restate them before acting.
     - Focus on the remaining ticket work and do not end the turn while the issue stays active unless you are truly blocked.
     """
@@ -258,6 +262,19 @@ defmodule SymphonyElixir.AgentRunner do
 
   defp worker_host_for_log(nil), do: "local"
   defp worker_host_for_log(worker_host), do: worker_host
+
+  defp dedup_workpad_comments(%Issue{id: issue_id} = issue) when is_binary(issue_id) do
+    case Tracker.find_workpad_comment(issue_id) do
+      {:ok, _single_or_none} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Workpad dedup failed for #{issue_context(issue)}: #{inspect(reason)}; continuing without dedup")
+        :ok
+    end
+  end
+
+  defp dedup_workpad_comments(_issue), do: :ok
 
   defp normalize_issue_state(state_name) when is_binary(state_name) do
     state_name
