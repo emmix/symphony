@@ -3,7 +3,7 @@ defmodule SymphonyElixir.CLI do
   Escript entrypoint for running Symphony with an explicit WORKFLOW.md path.
   """
 
-  alias SymphonyElixir.LogFile
+  alias SymphonyElixir.{Config, LogFile}
 
   @acknowledgement_switch :i_understand_that_this_will_be_running_without_the_usual_guardrails
   @switches [{@acknowledgement_switch, :boolean}, logs_root: :string, port: :integer]
@@ -114,7 +114,7 @@ defmodule SymphonyElixir.CLI do
   defp acknowledgement_banner do
     lines = [
       "This Symphony implementation is a low key engineering preview.",
-      "Codex will run without any guardrails.",
+      "#{agent_display_name()} will run without any guardrails.",
       "SymphonyElixir is not a supported product and is presented as-is.",
       "To proceed, start with `--i-understand-that-this-will-be-running-without-the-usual-guardrails` CLI argument"
     ]
@@ -187,5 +187,11 @@ defmodule SymphonyElixir.CLI do
             end
         end
     end
+  end
+
+  defp agent_display_name do
+    Config.agent_type()
+  rescue
+    _ -> "agent"
   end
 end

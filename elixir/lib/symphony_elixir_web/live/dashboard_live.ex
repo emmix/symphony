@@ -6,6 +6,7 @@ defmodule SymphonyElixirWeb.DashboardLive do
   use Phoenix.LiveView, layout: {SymphonyElixirWeb.Layouts, :app}
 
   alias SymphonyElixirWeb.{Endpoint, ObservabilityPubSub, Presenter}
+  alias SymphonyElixir.Config
   @runtime_tick_ms 1_000
 
   @impl true
@@ -108,7 +109,7 @@ defmodule SymphonyElixirWeb.DashboardLive do
           <article class="metric-card">
             <p class="metric-label">Runtime</p>
             <p class="metric-value numeric"><%= format_runtime_seconds(total_runtime_seconds(@payload, @now)) %></p>
-            <p class="metric-detail">Total Codex runtime across completed and active sessions.</p>
+            <p class="metric-detail">Total <%= agent_display_name() %> runtime across completed and active sessions.</p>
           </article>
         </section>
 
@@ -150,7 +151,7 @@ defmodule SymphonyElixirWeb.DashboardLive do
                     <th>State</th>
                     <th>Session</th>
                     <th>Runtime / turns</th>
-                    <th>Codex update</th>
+                    <th><%= agent_display_name() %> update</th>
                     <th>Tokens</th>
                   </tr>
                 </thead>
@@ -216,7 +217,7 @@ defmodule SymphonyElixirWeb.DashboardLive do
           <div class="section-header">
             <div>
               <h2 class="section-title">Blocked sessions</h2>
-              <p class="section-copy">Issues paused because Codex requested operator input or approval.</p>
+              <p class="section-copy">Issues paused because <%= agent_display_name() %> requested operator input or approval.</p>
             </div>
           </div>
 
@@ -443,4 +444,6 @@ defmodule SymphonyElixirWeb.DashboardLive do
 
   defp pretty_value(nil), do: "n/a"
   defp pretty_value(value), do: inspect(value, pretty: true, limit: :infinity)
+
+  defp agent_display_name, do: Config.agent_type()
 end
