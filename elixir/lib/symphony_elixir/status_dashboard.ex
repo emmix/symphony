@@ -1069,7 +1069,7 @@ defmodule SymphonyElixir.StatusDashboard do
 
   @doc false
   @spec humanize_codex_message(term()) :: String.t()
-  def humanize_codex_message(nil), do: "no codex message yet"
+  def humanize_codex_message(nil), do: "no #{agent_display_name()} message yet"
 
   def humanize_codex_message(%{event: event, message: message}) do
     payload = unwrap_codex_message_payload(message)
@@ -1966,4 +1966,10 @@ defmodule SymphonyElixir.StatusDashboard do
 
   defp resolve_override(nil, default), do: default
   defp resolve_override(override, _default), do: override
+
+  defp agent_display_name do
+    Config.agent_type()
+  rescue
+    _ -> "agent"
+  end
 end
